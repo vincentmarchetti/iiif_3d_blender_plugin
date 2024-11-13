@@ -113,33 +113,26 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
     def position_camera(self, cam_obj: Object, target_data: dict) -> None:
         """Position the camera based on target data"""
         # Get camera position from selector
-        selector = target_data.get('selector', [{}])[0]
-        if selector.get('type') == 'PointSelector':
-            cam_obj.location = Coordinates.get_iiif_coords_from_pointselector(selector)
+        selectors = target_data.get('selector', [])
+        if isinstance(selectors, list) and len(selectors) > 0:
+            selector = selectors[0]
+            if selector.get('type') == 'PointSelector':
+                cam_obj.location = Coordinates.get_iiif_coords_from_pointselector(selector)
 
     def set_camera_target(self, cam_obj: Object, look_at_data: dict) -> None:
         """Set the camera's look-at target"""
-        if look_at_data.get('type') == 'Annotation':
-            # Look at referenced annotation
-            target_id = look_at_data.get('id')
-            if not target_id:
-                self.report({'WARNING'}, "No target ID found in look_at_data")
-                return
-
-            center = self.get_annotation_bounds_center(target_id)
-            # Find the object with matching custom property
-            for obj in bpy.data.objects:
-                if obj.get('annotation_id') == target_id:
-                    self.point_camera_at_target(cam_obj, center)
-                    break
-        elif look_at_data.get('type') == 'PointSelector':
-            # Look at specific point
-            target_location = (
+        if look_at_data.get('type') == 'PointSelector':
+            target_location = Vector((
                 float(look_at_data.get('x', 0)),
-                float(look_at_data.get('z', 0)),  # Swap Y and Z
-                float(look_at_data.get('y', 0))
-            )
+                float(look_at_data.get('y', 0)),
+                float(look_at_data.get('z', 0))
+            ))
             self.point_camera_at_target(cam_obj, target_location)
+        elif look_at_data.get('type') == 'Annotation':
+            target_id = look_at_data.get('id')
+            if target_id:
+                center = self.get_annotation_bounds_center(target_id)
+                self.point_camera_at_target(cam_obj, center)
 
     def point_camera_at_target(self, cam_obj: Object, target_location: Vector | tuple[float, float, float]) -> None:
         """Point the camera at a specific location"""
@@ -216,17 +209,25 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             # Create camera
             cam_obj = self.create_camera(body, parent_collection)
 
+            # Store the complete annotation data
+            metadata = IIIFMetadata(cam_obj)
+            metadata.store_annotation(annotation_data)
+
             # Position camera
             target_data = annotation_data.get('target', {})
-            self.position_camera(cam_obj, target_data)
+            if isinstance(target_data, dict):
+                if 'selector' in target_data:
+                    self.position_camera(cam_obj, target_data)
 
             # Set camera target
             look_at_data = body.get('lookAt')
             if look_at_data:
                 self.set_camera_target(cam_obj, look_at_data)
 
-            # Store annotation ID
+            # Store additional properties
             cam_obj['annotation_id'] = annotation_data.get('id')
+            cam_obj['iiif_source_url'] = body.get('id')
+
         else:
             self.report({'WARNING'}, f"Unknown annotation body type: {body.get('type')}")
 

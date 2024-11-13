@@ -131,33 +131,22 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             "items": []
         }
 
-        # Look for annotation collections within the scene collection
-        for child_collection in collection.children:
-            # Collect all annotations from objects in the child collection
-            for obj in child_collection.objects:
-                if obj.type == 'MESH':
+        # Look for objects in the collection and its children
+        def process_collection(col):
+            for obj in col.objects:
+                if obj.type in {'MESH', 'CAMERA'}:  # Include both mesh and camera objects
                     metadata = IIIFMetadata(obj)
                     anno_data = metadata.get_annotation()
 
                     if anno_data:
                         self.report({'INFO'}, f"Found annotation data for {obj.name}: {anno_data}")
                         annotation_page["items"].append(anno_data)
-                    else:
-                        # If no stored annotation data, create new one from object properties
-                        source_url = obj.get('iiif_source_url')
-                        if source_url:
-                            new_anno = {
-                                "id": obj.get('annotation_id', f"https://example.org/iiif/3d/anno_{obj.name}"),
-                                "type": "Annotation",
-                                "motivation": ["painting"],
-                                "body": {
-                                    "id": source_url,
-                                    "type": "Model"
-                                },
-                                "target": page_id
-                            }
-                            annotation_page["items"].append(new_anno)
 
+            # Process child collections recursively
+            for child in col.children:
+                process_collection(child)
+
+        process_collection(collection)
         return annotation_page
 
     def execute(self, context: Context) -> Set[str]:
