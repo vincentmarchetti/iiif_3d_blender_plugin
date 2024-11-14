@@ -96,6 +96,58 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 
         return fallback_manifest
 
+    def get_light_annotation(self, obj: bpy.types.Object) -> dict:
+        """Get annotation data for a light object"""
+        light = obj.data
+
+        # Use original IDs if available
+        annotation_id = obj.get('original_annotation_id', f"https://example.org/iiif/3d/light_{obj.name}")
+        body_id = obj.get('original_body_id', f"https://example.org/iiif/3d/lights/{obj.name}")
+
+        if light.type == 'SUN':
+            light_type = 'DirectionalLight'
+        else:
+            light_type = 'AmbientLight'
+
+        annotation = {
+            "id": annotation_id,
+            "type": "Annotation",
+            "motivation": ["painting"],
+            "body": {
+                "id": body_id,
+                "type": light_type,
+                "label": {"en": [obj.name]},
+            }
+        }
+
+        # Add color if not default
+        if obj.get('original_color'):
+            annotation["body"]["color"] = rgba_to_hex((*light.color, 1.0)).upper()  # Force uppercase for hex values
+
+        # Add intensity if not default
+        original_intensity = obj.get('original_intensity')
+        if original_intensity:
+            try:
+                annotation["body"]["intensity"] = json.loads(original_intensity)
+            except json.JSONDecodeError:
+                self.report({'WARNING'}, f"Could not decode intensity data for {obj.name}")
+
+        original_lookAt = obj.get('original_lookAt')
+        if original_lookAt:
+            try:
+                annotation["body"]["lookAt"] = json.loads(original_lookAt)
+            except json.JSONDecodeError:
+                self.report({'WARNING'}, f"Could not decode lookAt data for {obj.name}")
+
+        original_target = obj.get('original_target')
+        if original_target:
+            try:
+                annotation["target"] = json.loads(original_target)
+            except json.JSONDecodeError:
+                self.report({'WARNING'}, f"Could not decode target data for {obj.name}")
+
+        return annotation
+
     def get_model_annotation(self, obj: bpy.types.Object) -> dict:
         """Get annotation data from metadata or create new"""
         metadata = IIIFMetadata(obj)
@@ -134,12 +186,17 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         # Look for objects in the collection and its children
         def process_collection(col):
             for obj in col.objects:
-                if obj.type in {'MESH', 'CAMERA'}:  # Include both mesh and camera objects
+                if obj.type == 'MESH':
                     metadata = IIIFMetadata(obj)
                     anno_data = metadata.get_annotation()
-
                     if anno_data:
-                        self.report({'INFO'}, f"Found annotation data for {obj.name}: {anno_data}")
+                        annotation_page["items"].append(anno_data)
+                elif obj.type == 'LIGHT':
+                    annotation_page["items"].append(self.get_light_annotation(obj))
+                elif obj.type == 'CAMERA':
+                    metadata = IIIFMetadata(obj)
+                    anno_data = metadata.get_annotation()
+                    if anno_data:
                         annotation_page["items"].append(anno_data)
 
             # Process child collections recursively

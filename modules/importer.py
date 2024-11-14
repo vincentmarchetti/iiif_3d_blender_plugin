@@ -201,33 +201,104 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                     col.objects.unlink(obj)
             parent_collection.objects.link(obj)
 
+    def process_annotation_camera(self, annotation_data: dict, parent_collection: Collection) -> None:
+        body = annotation_data.get('body', {})
+
+        # Create camera
+        cam_obj = self.create_camera(body, parent_collection)
+
+        # Store the complete annotation data
+        metadata = IIIFMetadata(cam_obj)
+        metadata.store_annotation(annotation_data)
+
+        # Position camera
+        target_data = annotation_data.get('target', {})
+        if isinstance(target_data, dict):
+            if 'selector' in target_data:
+                self.position_camera(cam_obj, target_data)
+
+        # Set camera target
+        look_at_data = body.get('lookAt')
+        if look_at_data:
+            self.set_camera_target(cam_obj, look_at_data)
+
+        # Store additional properties
+        cam_obj['annotation_id'] = annotation_data.get('id')
+        cam_obj['iiif_source_url'] = body.get('id')
+
+    def process_annotation_light(self, annotation_data: dict, parent_collection: Collection) -> None:
+        """Process and create lights from annotation data"""
+        body = annotation_data.get('body', {})
+        light_type = body.get('type')
+        light_name = body.get('label', {}).get('en', ['Light'])[0]
+
+        # Create light data
+        light_data = bpy.data.lights.new(name=light_name, type=self.get_blender_light_type(light_type))
+        light_obj = bpy.data.objects.new(name=light_name, object_data=light_data)
+
+        # Link to collection
+        parent_collection.objects.link(light_obj)
+
+        # Store original IDs
+        light_obj['original_annotation_id'] = annotation_data.get('id')
+        light_obj['original_body_id'] = body.get('id')
+
+        # Set light properties
+        if 'target' in annotation_data:
+            light_obj['original_target'] = json.dumps(annotation_data['target'])
+
+        # Store lookAt data if present
+        if 'lookAt' in body:
+            light_obj['original_lookAt'] = json.dumps(body['lookAt'])
+            look_at_data = body['lookAt']
+            if look_at_data.get('type') == 'Annotation':
+                # Store the annotation ID to look at
+                light_obj['lookAt_annotation_id'] = look_at_data.get('id', '')
+
+        if 'color' in body:
+            light_data.color = hex_to_rgba(body['color'])[:3]  # Exclude alpha
+            light_obj['original_color'] = body['color']
+
+        if 'intensity' in body:
+            intensity_data = body['intensity']
+            if isinstance(intensity_data, dict):
+                light_data.energy = float(intensity_data.get('value', 1.0))
+                light_obj['original_intensity'] = json.dumps(intensity_data)
+
+        # Store metadata
+        metadata = IIIFMetadata(light_obj)
+        metadata.store_annotation(annotation_data)
+
+    def get_blender_light_type(self, iiif_light_type: str) -> str:
+        """Convert IIIF light type to Blender light type"""
+        light_type_map = {
+            'AmbientLight': 'POINT',  # Blender doesn't have ambient lights, approximate with point
+            'DirectionalLight': 'SUN'
+        }
+        return light_type_map.get(iiif_light_type, 'POINT')
+
+    def process_annotation_specific_resource(self, annotation_data: dict, parent_collection: Collection) -> None:
+        """Process SpecificResource type annotations (like transformed lights)"""
+        body = annotation_data.get('body', {})
+        source = body.get('source', [{}])[0] if isinstance(body.get('source'), list) else body.get('source', {})
+
+        # Create the light first
+        light_annotation = annotation_data.copy()
+        light_annotation['body'] = source
+        self.process_annotation_light(light_annotation, parent_collection)
+
+        # TODO: Transforms
+
     def process_annotation(self, annotation_data: dict, parent_collection: Collection) -> None:
         body = annotation_data.get('body', {})
-        if body.get('type') == 'Model':
+        if body['type'] == 'Model':
             self.process_annotation_model(annotation_data, parent_collection)
-        elif body.get('type') == 'PerspectiveCamera':
-            # Create camera
-            cam_obj = self.create_camera(body, parent_collection)
-
-            # Store the complete annotation data
-            metadata = IIIFMetadata(cam_obj)
-            metadata.store_annotation(annotation_data)
-
-            # Position camera
-            target_data = annotation_data.get('target', {})
-            if isinstance(target_data, dict):
-                if 'selector' in target_data:
-                    self.position_camera(cam_obj, target_data)
-
-            # Set camera target
-            look_at_data = body.get('lookAt')
-            if look_at_data:
-                self.set_camera_target(cam_obj, look_at_data)
-
-            # Store additional properties
-            cam_obj['annotation_id'] = annotation_data.get('id')
-            cam_obj['iiif_source_url'] = body.get('id')
-
+        elif body['type'] == 'PerspectiveCamera':
+            self.process_annotation_camera(annotation_data, parent_collection)
+        elif body['type'] in ['AmbientLight', 'DirectionalLight']:
+            self.process_annotation_light(annotation_data, parent_collection)
+        elif body['type'] == 'SpecificResource':
+            self.process_annotation_specific_resource(annotation_data, parent_collection)
         else:
             self.report({'WARNING'}, f"Unknown annotation body type: {body.get('type')}")
 
