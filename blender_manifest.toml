@@ -1,0 +1,31 @@
+schema_version = "1.0.0"
+
+id = "blender_iiif_3d_plugin"
+name = "Blender IIIF Manifest Import/Export"
+version = "1.0.0"
+tagline = "Import or export IIIF manifests"
+maintainer = "Developer name <email@address.com>"
+
+type = "add-on"
+
+website = "https://github.com/IIIF-Commons/3d-blender-plugin"
+
+tags = ["Import-Export"]
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+network = "Load models defined in IIIF manifests from the web"
+files = "Import/export IIIF manifests from/to the filesystem"
+
+[build]
+paths_exclude_pattern = [
+    "__pycache__/",
+    "/.git/",
+    "/*.zip",
+    "venv",
+    "assets",
+    ".gitignore",
+]
