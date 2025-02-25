@@ -117,16 +117,21 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         if isinstance(selectors, list) and len(selectors) > 0:
             selector = selectors[0]
             if selector.get('type') == 'PointSelector':
-                cam_obj.location = Coordinates.get_iiif_coords_from_pointselector(selector)
+                cam_obj.location = \
+                Coordinates.iiif_to_blender(
+                    Coordinates.get_iiif_coords_from_pointselector(selector)
+                )
 
     def set_camera_target(self, cam_obj: Object, look_at_data: dict) -> None:
         """Set the camera's look-at target"""
         if look_at_data.get('type') == 'PointSelector':
-            target_location = Vector((
-                float(look_at_data.get('x', 0)),
-                float(look_at_data.get('y', 0)),
-                float(look_at_data.get('z', 0))
-            ))
+            target_location = Coordinates.iiif_to_blender(
+                Vector((
+                    float(look_at_data.get('x', 0)),
+                    float(look_at_data.get('y', 0)),
+                    float(look_at_data.get('z', 0))
+                ))
+            )
             self.point_camera_at_target(cam_obj, target_location)
         elif look_at_data.get('type') == 'Annotation':
             target_id = look_at_data.get('id')
