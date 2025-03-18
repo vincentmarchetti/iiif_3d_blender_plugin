@@ -14,6 +14,8 @@ from .metadata import IIIFMetadata
 from .utils.color import hex_to_rgba
 from .utils.coordinates import Coordinates
 
+import logging
+logger = logging.getLogger("Import")
 
 class ImportIIIF3DManifest(Operator, ImportHelper):
     """Import IIIF 3D Manifest"""
