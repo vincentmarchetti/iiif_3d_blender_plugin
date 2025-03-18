@@ -44,9 +44,9 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         temp_file = os.path.join(temp_dir, f"temp_model_{time_string}_{model_name}{model_extension}")
 
         try:
-            self.report({'INFO'}, f"Downloading model from {url} to {temp_file}")
+            self.report({'DEBUG'}, f"Downloading model from {url} to {temp_file}")
             urllib.request.urlretrieve(url, temp_file)
-            self.report({'INFO'}, f"Successfully downloaded model to {temp_file}")
+            self.report({'DEBUG'}, f"Successfully downloaded model to {temp_file}")
             return temp_file
         except Exception as e:
             self.report({'ERROR'}, f"Error downloading model: {str(e)}")
@@ -187,7 +187,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             self.report({'ERROR'}, "Model ID not found in annotation data")
             return
 
-        self.report({'INFO'}, f"Processing model: {model_id}")
+        self.report({'DEBUG'}, f"Processing model: {model_id}")
         temp_file = self.download_model(model_id)
         self.import_model(temp_file)
 
@@ -329,7 +329,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         metadata.store_manifest(self.manifest_data)
 
         if 'backgroundColor' in scene_data:
-            self.report({'INFO'}, f"Setting background color: {scene_data['backgroundColor']}")
+            self.report({'DEBUG'}, f"Setting background color: {scene_data['backgroundColor']}")
             try:
                 bpy.context.scene.world.use_nodes = True
                 background_node = bpy.context.scene.world.node_tree.nodes["Background"]
@@ -380,10 +380,10 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             with open(self.filepath, 'r', encoding='utf-8') as f:
                 self.manifest_data = json.load(f)
 
-            self.report({'INFO'}, f"Successfully read manifest from {self.filepath}")
-            self.report({'INFO'}, f"Manifest data: {self.manifest_data}")
+            self.report({'DEBUG'}, f"Successfully read manifest from {self.filepath}")
+            self.report({'DEBUG'}, f"Manifest data: {self.manifest_data}")
             self.process_manifest(self.manifest_data)
-            self.report({'INFO'}, f"Successfully imported manifest from {self.filepath}")
+            self.report({'DEBUG'}, f"Successfully imported manifest from {self.filepath}")
 
             return {'FINISHED'}
         except Exception as e:
