@@ -1,4 +1,5 @@
-from mathutils import Vector
+from mathutils import Vector, Euler
+import math
 
 
 class Coordinates:
@@ -73,3 +74,85 @@ class Coordinates:
         if isinstance(coords, dict):
             return Coordinates.get_iiif_coords_from_pointselector(coords)
         return Vector(coords)
+        
+    @staticmethod
+    def model_transform_angles_to_blender_euler_angle(angles):
+        """
+        Returrns a Blender Euler instance that gives same geometric rotation as an
+        IIIF RotateTransform
+        
+        angles argument: a sequence of (at least 3) numbers; the values of the 
+        "x","y","z" properties of the Presentation 4 RotateTransform class. These
+        values are counterclocwise rotations about coordinate axes in degrees.
+        
+        RotateTransform rotation is interpreted as Euler Angles rotations about 
+        intrinsic axes in XYZ order. These XYZ axes are as defined in IIIF coordinate
+        system.
+        
+        This function returns an instance of mathutils.Euler
+        see https://docs.blender.org/api/current/mathutils.html#mathutils.Euler
+        
+        In the constructor for Euler, the angle values are in radians, and the
+        arguments are given in XYZ order, referring to the Blender X,Y,Z axes.
+        
+        The Blender Euler class allows several options for the order if axes rotation
+        in defining the effect of rotations. In conversions of IIIF RotateTransform the
+        natural Euler ordering for Blender will be "YZX" because of: 
+                -- the relation between axes in IIIF to Blender systems
+                -- the shift from intrinic axis rotation to extrinsic
+        
+        The Euler instance returned from this function is what should be entered as the
+        rotate property of an import gltf/glb model to give the effect of a 
+        RotateTransform applied to an IIIF model.
+        """
+        y_blender_angle = - math.radians( angles[2])
+        z_blender_angle =   math.radians( angles[1])
+        x_blender_angle =   math.radians( angles[0])
+        
+        blender_axes = ( x_blender_angle, y_blender_angle, z_blender_angle)
+        return Euler( blender_axes, order='YZX')
+        
+    @staticmethod
+    def camera_transform_angles_to_blender_euler_angle(angles):
+        """
+        Returns a Blender Euler instance that applied to a Blender camera results
+        in the same camera orientation as a RotateTransform applied to a IIIF Camera.
+        
+        This calculation differs from the calculation for model_transform_angles_to_blender_euler_angle
+        because the initial state of a Blender camera is pointing downward, along
+        the -Z Blender axis, while the initial state of an IIIF camera is points
+        in the +Z IIIF axes, which is the -Y Blender axis
+        
+        The calculation below is the result of first rotating a Blender camera by
+        90 degrees ccw about the Blender X axis, then applying the model transform
+        as would be returned by model_transform_angles_to_blender_euler_angle
+        
+        angles argument: a sequence of (at least 3) numbers; the values of the 
+        "x","y","z" properties of the Presentation 4 RotateTransform class. These
+        values are counterclocwise rotations about coordinate axes in degrees.
+        
+        RotateTransform rotation is interpreted as Euler Angles rotations about 
+        intrinsic axes in XYZ order. These XYZ axes are as defined in IIIF coordinate
+        system.
+        
+        This function returns an instance of mathutils.Euler
+        see https://docs.blender.org/api/current/mathutils.html#mathutils.Euler
+        
+        In the constructor for Euler, the angle values are in radians, and the
+        arguments are given in XYZ order, referring to the Blender X,Y,Z axes.
+        
+        
+        
+        The Euler instance returned from this function is what should be entered as the
+        rotate property of an new Blender camera to give the effect of a 
+        RotateTransform applied to an IIIF camera.
+        """
+        x_blender_angle =   math.radians( angles[0] + 90.0)
+        y_blender_angle = - math.radians( angles[1])
+        z_blender_angle =   math.radians( angles[2])
+        
+        
+        blender_axes = ( x_blender_angle, y_blender_angle, z_blender_angle)
+        order='ZYX'
+        return Euler( blender_axes, order)
+

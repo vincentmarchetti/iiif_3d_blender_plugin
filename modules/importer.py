@@ -17,6 +17,49 @@ from .utils.coordinates import Coordinates
 import logging
 logger = logging.getLogger("Import")
 
+
+def force_as_singleton( obj ):
+    """
+    A way of dealing with json-ld which is flexible
+    with regards to objects (python dictionaries) and lists
+    This function will follow rule:
+    If obj is None or an empty list : return None
+    if obj is a non-empty list:
+        return the 0th element, a report a warning message if some instances are being 
+            ignore
+    otherwist, return obj
+    
+    Use this if you expect value of property to be a single resource
+    """
+    
+    if obj is None or obj == []:
+        return None
+    if isinstance(obj,list):
+        if len(obj) != 1:
+            logger.warn("list of %i elements being coerced to singleton" % len(obj))
+        return obj[0]
+    return obj
+    
+def force_as_list( obj ):
+    """
+    A way of dealing with json-ld which is flexible
+    with regards to objects (python dictionaries) and lists
+    This function will follow rule:
+    If obj is None  return empty list
+    if obj is not a list: return [obj]
+    else return obj
+    
+    
+    Use this if you expect value of property to be a list of resources, possible empty
+    """
+    
+    if obj is None:
+        return []
+    if not isinstance(obj,list):
+        return [obj]
+    return obj
+    
+    
 class ImportIIIF3DManifest(Operator, ImportHelper):
     """Import IIIF 3D Manifest"""
 
@@ -208,30 +251,68 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                     col.objects.unlink(obj)
             parent_collection.objects.link(obj)
 
-    def process_annotation_camera(self, annotation_data: dict, parent_collection: Collection) -> None:
-        body = annotation_data.get('body', {})
-
+    def process_annotation_camera(self, camera_data: dict, specific_resource_data : dict ,annotation_data: dict, parent_collection: Collection) -> None:
+        """
+        This function will create a Blender camera, orient it, and place it in the
+        Blender scene. It will also set the properties of the camera (the Blender
+        representation of "fieldOfView" though this is not yet implemented)
+        
+        camera_data : a dictionary giving the properties of the camera resource
+        preContract: camera_data['id'] = "PerspectiveCamera"
+        
+        specific_resource_data : dictonary giving properties of the SpecificResource
+        that has the camera as its "source" property
+        If there is no such SpecificResource then this should be set to None
+        
+        annotation_data: the data for the entire annotation
+        
+        """
+        logger.info("specific_resources_data: %r", specific_resource_data)
         # Create camera
-        cam_obj = self.create_camera(body, parent_collection)
+        cam_obj = self.create_camera(camera_data, parent_collection)
 
         # Store the complete annotation data
         metadata = IIIFMetadata(cam_obj)
         metadata.store_annotation(annotation_data)
 
-        # Position camera
+        # orient camera_data
+        # Set camera target
+        look_at_data = force_as_singleton(camera_data.get('lookAt', None))
+        transforms_data = force_as_list(specific_resource_data.get("transform", None))
+        
+        if look_at_data is None and transforms_data == []:
+            logger.warn("camera has no orientation specified")
+        if look_at_data is not None and len(transforms_data) > 0:
+            logger.warn("ambigous camera orienttion; using lookAt")
+        
+        if look_at_data:
+            self.set_camera_target(cam_obj, look_at_data)
+        elif transforms_data:
+            if not (len(transforms_data) == 1 and transforms_data[0].get("id",None) == "RotateTransform"):
+                logger.error("Unsupported transforms resource %r" % transforms_data)
+            rotation_data = transforms_data[0]
+            x_angle = rotation_data.get("x", 0.0)
+            y_angle = rotation_data.get("y", 0.0)
+            z_angle = rotation_data.get("z", 0.0)
+            iiif_angles = (x_angle,y_angle,z_angle )
+            logger.info("implement IIIF rotation: %s" % (iiif_angles,))
+            
+            
+            blender_euler = Coordinates.camera_transform_angles_to_blender_euler_angle(iiif_angles)
+            logger.info("returned Euler : %r" % (blender_euler,))
+            cam_obj.rotation_euler = blender_euler
+        
+        # position camera
         target_data = annotation_data.get('target', {})
         if isinstance(target_data, dict):
             if 'selector' in target_data:
                 self.position_camera(cam_obj, target_data)
 
-        # Set camera target
-        look_at_data = body.get('lookAt')
-        if look_at_data:
-            self.set_camera_target(cam_obj, look_at_data)
+        
 
         # Store additional properties
         cam_obj['annotation_id'] = annotation_data.get('id')
-        cam_obj['iiif_source_url'] = body.get('id')
+        cam_obj['iiif_source_url'] = camera_data.get('id')
 
     def process_annotation_light(self, annotation_data: dict, parent_collection: Collection) -> None:
         """Process and create lights from annotation data"""
@@ -286,9 +367,22 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
 
     def process_annotation_specific_resource(self, annotation_data: dict, parent_collection: Collection) -> None:
         """Process SpecificResource type annotations (like transformed lights)"""
-        body = annotation_data.get('body', {})
-        source = body.get('source', [{}])[0] if isinstance(body.get('source'), list) else body.get('source', {})
-
+        specific_resource_data = force_as_singleton(annotation_data.get('body', None))
+        if specific_resource_data is None:
+            logger.error("specific_resource_data is None")
+            return
+            
+        source_data = force_as_singleton( specific_resource_data.get('source', None) )
+        if source_data is None:
+            logger.error("specific_resource_data['source'] is None")
+            return
+        
+        if source_data['type'] in {"PerspectiveCamera", "OrthographicCamera"}:
+            self.process_annotation_camera(source_data, specific_resource_data, annotation_data, parent_collection)
+            
+            
+            return
+            
         # Create the light first
         light_annotation = annotation_data.copy()
         light_annotation['body'] = source
@@ -301,7 +395,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         if body['type'] == 'Model':
             self.process_annotation_model(annotation_data, parent_collection)
         elif body['type'] == 'PerspectiveCamera':
-            self.process_annotation_camera(annotation_data, parent_collection)
+            self.process_annotation_camera(body, None, annotation_data, parent_collection)
         elif body['type'] in ['AmbientLight', 'DirectionalLight']:
             self.process_annotation_light(annotation_data, parent_collection)
         elif body['type'] == 'SpecificResource':
