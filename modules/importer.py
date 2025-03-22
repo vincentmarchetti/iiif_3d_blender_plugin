@@ -14,6 +14,7 @@ from .metadata import IIIFMetadata
 from .utils.color import hex_to_rgba
 from .utils.coordinates import Coordinates
 from .utils.json_patterns import force_as_object, force_as_singleton, force_as_list
+import math
 
 import logging
 logger = logging.getLogger("Import")
@@ -114,7 +115,29 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         # Set camera type (perspective is default in Blender)
         if camera_data.get('type') == 'PerspectiveCamera':
             cam_data.type = 'PERSP'
-
+            """
+            field of view review
+            In draft 3D API https://github.com/IIIF/3d/blob/main/temp-draft-4.md
+            the fieldOfView property on PerspectiveCamera is the 
+            angular size of the viewport in the vertical -- meaning the top-to-bottom
+            dimension of the 2 rendering. Angle is in degrees,
+            The default value is client-dependent
+            Here the default is defined as 53 (degrees); the angular size of a 
+            6 ft person viewed from 6 ft away.
+            """
+            foV_default = 53.0
+            foV = force_as_singleton( camera_data.get("fieldOfView", foV_default))
+            if foV is not None:
+                try:
+                    foV = float(foV)
+                except:
+                    logger.error("fieldOfView value %r cannot be cast to number" % (foV,))
+            foV = foV or foV_default
+            cam_obj.data.angle_y = math.radians(foV)
+            
+            # this assignment just directs the Blender UI to show the 
+            # Field Of View vertical angle value
+            cam_obj.data.sensor_fit = 'VERTICAL'
         return cam_obj
 
     def position_camera(self, cam_obj: Object, target_data: dict) -> None:
