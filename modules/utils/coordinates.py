@@ -108,9 +108,10 @@ class Coordinates:
         y_blender_angle = - math.radians( angles[2])
         z_blender_angle =   math.radians( angles[1])
         x_blender_angle =   math.radians( angles[0])
+        order='YZX'
         
         blender_axes = ( x_blender_angle, y_blender_angle, z_blender_angle)
-        return Euler( blender_axes, order='YZX')
+        return Euler( blender_axes, order)
         
     @staticmethod
     def camera_transform_angles_to_blender_euler_angle(angles):
@@ -148,7 +149,7 @@ class Coordinates:
         RotateTransform applied to an IIIF camera.
         """
         x_blender_angle =   math.radians( angles[0] + 90.0)
-        y_blender_angle = - math.radians( angles[1])
+        y_blender_angle =   math.radians( angles[1])
         z_blender_angle =   math.radians( angles[2])
         
         
