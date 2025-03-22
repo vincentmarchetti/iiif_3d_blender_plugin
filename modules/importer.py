@@ -17,7 +17,44 @@ from .utils.coordinates import Coordinates
 import logging
 logger = logging.getLogger("Import")
 
-
+def force_as_object( json_data , default_type=None):
+    """
+    argument
+    json_data : None, a python dict, or a StringProperty
+    
+    default_type : string, hint as to what type the resulting
+                    object will be
+                    
+    None and python dict are returned back
+    otherwise attempt, from the string value and default_type, if 
+    provided, a dict with id 
+    
+    
+    If string, and can be interprerted as a URI, will
+    be returned wrapped in a dict with that value as the id property
+    """
+    if json_data is None or type(json_data) == dict:
+        return json_data
+        
+    if type(json_data) == str:
+        # placeholder: at this point in code eventually will
+        # determine if json_data is a URI from which the resource
+        # can be rechieved by a remote query
+        determined_type = None
+        
+        _type = determined_type or default_type
+        retVal = {"id" : json_data}
+        
+        if _type:
+            retVal["type"] = _type
+            
+        return retVal
+            
+    
+    raise  ValueError("force_as_object : cannot interpret %r as a resource" % (json_data,))
+    
+    
+        
 def force_as_singleton( obj ):
     """
     A way of dealing with json-ld which is flexible
@@ -102,7 +139,11 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         file_ext = os.path.splitext(filepath)[1].lower()
 
         if file_ext == '.glb' or file_ext == '.gltf':
+            import_func = bpy.ops.import_scene.gltf
+            logger.info("import func: %r" % import_func.__class__ )
             bpy.ops.import_scene.gltf(filepath=filepath)
+            ao = bpy.context.active_object
+            logger.info("active_object after call to import_func: %r" % ao)
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
@@ -211,7 +252,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         label = data.get('label', {}).get('en', [iiif_id])[0]
         return label
 
-    def process_annotation_model(self, annotation_data: dict, parent_collection: Collection) -> None:
+    def process_annotation_model(self, source_data:dict, specific_resource_data: dict, annotation_data:dict, parent_collection: Collection )-> None:
         context = bpy.context
         if not context:
             self.report({'ERROR'}, "No active context")
@@ -226,15 +267,49 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             if child.collection == parent_collection:
                 context.view_layer.active_layer_collection = child
                 break
-
-        model_id = annotation_data.get('body', {}).get('id', None)
+        
+        model_id = source_data.get('id', None)
         if not model_id:
             self.report({'ERROR'}, "Model ID not found in annotation data")
+            logger.error("Model ID not found in annotation data")
             return
+        else:
+            logger.info("loading model_id: %s" % model_id)
 
         self.report({'DEBUG'}, f"Processing model: {model_id}")
         temp_file = self.download_model(model_id)
         self.import_model(temp_file)
+        new_model = bpy.context.active_object
+        logger.info("new_model: %r" % new_model)
+
+        transform_data = specific_resource_data and \
+                            force_as_list(specific_resource_data.get("transform", None))
+        
+        if transform_data:
+            rotation_data = force_as_singleton([ t for t in transform_data if t['type'] in {"RotateTransform"}])
+            x_angle = rotation_data.get("x", 0.0)
+            y_angle = rotation_data.get("y", 0.0)
+            z_angle = rotation_data.get("z", 0.0)
+            iiif_angles = (x_angle,y_angle,z_angle )
+            blender_euler = Coordinates.model_transform_angles_to_blender_euler_angle(iiif_angles)
+            logger.info("implement IIIF rotation: %r as " % (iiif_angles,blender_euler))
+            new_model.rotation_mode  = blender_euler.order
+            new_model.rotation_euler = blender_euler
+            
+        target_data = force_as_object(
+                        force_as_singleton(annotation_data.get('target', None)),
+                        default_type="Scene")
+        if target_data and target_data["type"] in {"SpecificResource"}:
+            selector_data = force_as_singleton( target_data.get("selector", None))
+            if selector_data and selector_data["type"] in {"PointSelector"}:
+                x_pos = selector_data.get("x", 0.0)
+                y_pos = selector_data.get("y", 0.0)
+                z_pos = selector_data.get("z", 0.0)
+                iiif_pos = (x_pos,y_pos,z_pos)
+                blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
+                logger.info("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
+                new_model.location = blender_vector
+                
 
         # Move newly imported objects to the parent collection and store metadata
         for obj in context.selected_objects:
@@ -278,35 +353,48 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         # orient camera_data
         # Set camera target
         look_at_data = force_as_singleton(camera_data.get('lookAt', None))
-        transforms_data = force_as_list(specific_resource_data.get("transform", None))
+        transform_data = specific_resource_data and \
+                            force_as_list(specific_resource_data.get("transform", None))
         
-        if look_at_data is None and transforms_data == []:
+        if look_at_data is None and transform_data == []:
             logger.warn("camera has no orientation specified")
-        if look_at_data is not None and len(transforms_data) > 0:
+        if look_at_data is not None and len(transform_data) > 0:
             logger.warn("ambigous camera orienttion; using lookAt")
         
         if look_at_data:
             self.set_camera_target(cam_obj, look_at_data)
-        elif transforms_data:
-            if not (len(transforms_data) == 1 and transforms_data[0].get("id",None) == "RotateTransform"):
+        elif transform_data:
+            if not (len(transform_data) == 1 and transform_data[0].get("type",None) == "RotateTransform"):
                 logger.error("Unsupported transforms resource %r" % transforms_data)
-            rotation_data = transforms_data[0]
+                return
+            rotation_data = transform_data[0]
             x_angle = rotation_data.get("x", 0.0)
             y_angle = rotation_data.get("y", 0.0)
             z_angle = rotation_data.get("z", 0.0)
             iiif_angles = (x_angle,y_angle,z_angle )
-            logger.info("implement IIIF rotation: %s" % (iiif_angles,))
-            
             
             blender_euler = Coordinates.camera_transform_angles_to_blender_euler_angle(iiif_angles)
-            logger.info("returned Euler : %r" % (blender_euler,))
+            logger.info("implement IIIF rotation: %s as Blender %r" % (iiif_angles,blender_euler))
+                       
+            
+            logger.info("Blender euler for camera: %r" % blender_euler)
+            cam_obj.rotation_mode  = blender_euler.order
             cam_obj.rotation_euler = blender_euler
         
         # position camera
-        target_data = annotation_data.get('target', {})
-        if isinstance(target_data, dict):
-            if 'selector' in target_data:
-                self.position_camera(cam_obj, target_data)
+        target_data = force_as_object(
+                        force_as_singleton(annotation_data.get('target', None)),
+                        default_type="Scene")
+        if target_data and target_data["type"] in {"SpecificResource"}:
+            selector_data = force_as_singleton( target_data.get("selector", None))
+            if selector_data and selector_data["type"] in {"PointSelector"}:
+                x_pos = selector_data.get("x", 0.0)
+                y_pos = selector_data.get("y", 0.0)
+                z_pos = selector_data.get("z", 0.0)
+                iiif_pos = (x_pos,y_pos,z_pos)
+                blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
+                logger.info("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
+                cam_obj.location = blender_vector
 
         
 
@@ -372,16 +460,21 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             logger.error("specific_resource_data is None")
             return
             
-        source_data = force_as_singleton( specific_resource_data.get('source', None) )
+        source_data = force_as_object(
+                            force_as_singleton( specific_resource_data.get('source', None) ), 
+                            default_type="Mpdel")
         if source_data is None:
             logger.error("specific_resource_data['source'] is None")
             return
         
         if source_data['type'] in {"PerspectiveCamera", "OrthographicCamera"}:
             self.process_annotation_camera(source_data, specific_resource_data, annotation_data, parent_collection)
-            
-            
             return
+            
+        if source_data['type'] in {"Model"}:
+            self.process_annotation_model(source_data, specific_resource_data, annotation_data, parent_collection)
+            return
+
             
         # Create the light first
         light_annotation = annotation_data.copy()
@@ -391,9 +484,17 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         # TODO: Transforms
 
     def process_annotation(self, annotation_data: dict, parent_collection: Collection) -> None:
-        body = annotation_data.get('body', {})
+        body = force_as_object(
+                    force_as_singleton(annotation_data.get('body', None)),
+                    default_type = "Model")
+        if body is None:
+            # eventually will want to check if there is a bodyValue property, if so
+            # construct a TextualBody resource
+            logger.warn("annotation %s has no body property" % annotation_data["id"])
+            return
+                 
         if body['type'] == 'Model':
-            self.process_annotation_model(annotation_data, parent_collection)
+            self.process_annotation_model(body,None,annotation_data, parent_collection)
         elif body['type'] == 'PerspectiveCamera':
             self.process_annotation_camera(body, None, annotation_data, parent_collection)
         elif body['type'] in ['AmbientLight', 'DirectionalLight']:
