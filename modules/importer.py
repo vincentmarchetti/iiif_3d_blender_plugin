@@ -62,10 +62,8 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
 
         if file_ext == '.glb' or file_ext == '.gltf':
             import_func = bpy.ops.import_scene.gltf
-            logger.info("import func: %r" % import_func.__class__ )
             bpy.ops.import_scene.gltf(filepath=filepath)
             ao = bpy.context.active_object
-            logger.info("active_object after call to import_func: %r" % ao)
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
@@ -218,13 +216,13 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             logger.error("Model ID not found in annotation data")
             return
         else:
-            logger.info("loading model_id: %s" % model_id)
+            logger.debug("loading model_id: %s" % model_id)
 
         self.report({'DEBUG'}, f"Processing model: {model_id}")
         temp_file = self.download_model(model_id)
         self.import_model(temp_file)
         new_model = bpy.context.active_object
-        logger.info("new_model: %r" % new_model)
+        logger.info("new_model: %r from url: %s" % (new_model,model_id))
 
         transform_data = specific_resource_data and \
                             force_as_list(specific_resource_data.get("transform", None))
@@ -236,7 +234,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             z_angle = rotation_data.get("z", 0.0)
             iiif_angles = (x_angle,y_angle,z_angle )
             blender_euler = Coordinates.model_transform_angles_to_blender_euler_angle(iiif_angles)
-            logger.info("implement IIIF rotation: %r as " % (iiif_angles,blender_euler))
+            logger.debug("implement IIIF rotation: %r as " % (iiif_angles,blender_euler))
             new_model.rotation_mode  = blender_euler.order
             new_model.rotation_euler = blender_euler
             
@@ -251,7 +249,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                 z_pos = selector_data.get("z", 0.0)
                 iiif_pos = (x_pos,y_pos,z_pos)
                 blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
-                logger.info("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
+                logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
                 new_model.location = blender_vector
                 
 
@@ -286,7 +284,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         annotation_data: the data for the entire annotation
         
         """
-        logger.info("specific_resources_data: %r", specific_resource_data)
+        logger.debug("specific_resources_data: %r", specific_resource_data)
         # Create camera
         cam_obj = self.create_camera(camera_data, parent_collection)
 
@@ -315,13 +313,9 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             x_angle = rotation_data.get("x", 0.0)
             y_angle = rotation_data.get("y", 0.0)
             z_angle = rotation_data.get("z", 0.0)
-            iiif_angles = (x_angle,y_angle,z_angle )
-            
+            iiif_angles = (x_angle,y_angle,z_angle )            
             blender_euler = Coordinates.camera_transform_angles_to_blender_euler_angle(iiif_angles)
-            logger.info("implement IIIF rotation: %s as Blender %r" % (iiif_angles,blender_euler))
-                       
-            
-            logger.info("Blender euler for camera: %r" % blender_euler)
+            logger.debug("implement IIIF rotation: %s as Blender %r" % (iiif_angles,blender_euler))
             cam_obj.rotation_mode  = blender_euler.order
             cam_obj.rotation_euler = blender_euler
         
@@ -337,7 +331,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                 z_pos = selector_data.get("z", 0.0)
                 iiif_pos = (x_pos,y_pos,z_pos)
                 blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
-                logger.info("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
+                logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
                 cam_obj.location = blender_vector
 
         
@@ -432,10 +426,15 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                     force_as_singleton(annotation_data.get('body', None)),
                     default_type = "Model")
         if body is None:
-            # eventually will want to check if there is a bodyValue property, if so
-            # construct a TextualBody resource
-            logger.warn("annotation %s has no body property" % annotation_data["id"])
-            return
+            bodyValue = force_as_singleton(annotation_data.get('bodyValue', None))
+            if type( bodyValue ) == str:
+                body = {
+                    "type" : "TextualBody",
+                    "value" : bodyValue
+                }
+            else:
+                logger.warn("annotation %s has no body property" % annotation_data["id"])
+                return
                  
         if body['type'] == 'Model':
             self.process_annotation_model(body,None,annotation_data, parent_collection)
@@ -446,7 +445,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         elif body['type'] == 'SpecificResource':
             self.process_annotation_specific_resource(annotation_data, parent_collection)
         else:
-            self.report({'WARNING'}, f"Unknown annotation body type: {body.get('type')}")
+            logger.warn("body type %s not supported for Blender" % body["type"])
 
     def process_annotation_page(self, annotation_page_data: dict, scene_collection: Collection) -> None:
         page_collection = self.create_or_get_collection(self.get_iiif_id_or_label(annotation_page_data), scene_collection)
