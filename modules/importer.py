@@ -229,18 +229,35 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         
         if transform_data:
             rotation_data = force_as_singleton([ t for t in transform_data if t['type'] in {"RotateTransform"}])
-            x_angle = rotation_data.get("x", 0.0)
-            y_angle = rotation_data.get("y", 0.0)
-            z_angle = rotation_data.get("z", 0.0)
-            iiif_angles = (x_angle,y_angle,z_angle )
-            blender_euler = Coordinates.model_transform_angles_to_blender_euler_angle(iiif_angles)
-            logger.debug("implement IIIF rotation: %r as " % (iiif_angles,blender_euler))
-            new_model.rotation_mode  = blender_euler.order
-            new_model.rotation_euler = blender_euler
+            if rotation_data:
+                x_angle = rotation_data.get("x", 0.0)
+                y_angle = rotation_data.get("y", 0.0)
+                z_angle = rotation_data.get("z", 0.0)
+                iiif_angles = (x_angle,y_angle,z_angle )
+                blender_euler = Coordinates.model_transform_angles_to_blender_euler_angle(iiif_angles)
+                logger.debug("implement IIIF rotation: %r as %r" % (iiif_angles,blender_euler))
+                new_model.rotation_mode  = blender_euler.order
+                new_model.rotation_euler = blender_euler
             
+            scale_data = force_as_singleton([ t for t in transform_data if t['type'] in {"ScaleTransform"}])
+            if scale_data:
+                x_scale = scale_data.get("x", 0.0)
+                y_scale = scale_data.get("y", 0.0)
+                z_scale = scale_data.get("z", 0.0)
+                
+                # pending clarification by Presentation 4 editors will only 
+                # support uniform scale by a positive value
+                if not ( x_scale == y_scale and y_scale == z_scale):
+                    logger.warn("non-uniform scale factors not supported: %s" % ((x_scale, y_scale, z_scale),))
+                elif ( x_scale <= 0.0):
+                    logger.warn("non-positive scale %f not supported" % x_scale )
+                else:
+                    new_model.scale = Vector( (x_scale, x_scale, x_scale) )
+                    
         target_data = force_as_object(
                         force_as_singleton(annotation_data.get('target', None)),
                         default_type="Scene")
+                        
         if target_data and target_data["type"] in {"SpecificResource"}:
             selector_data = force_as_singleton( target_data.get("selector", None))
             if selector_data and selector_data["type"] in {"PointSelector"}:
@@ -295,8 +312,8 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         # orient camera_data
         # Set camera target
         look_at_data = force_as_singleton(camera_data.get('lookAt', None))
-        transform_data = specific_resource_data and \
-                            force_as_list(specific_resource_data.get("transform", None))
+        transform_data = force_as_list( specific_resource_data and \
+                                        specific_resource_data.get("transform", None))
         
         if look_at_data is None and transform_data == []:
             logger.warn("camera has no orientation specified")
