@@ -14,7 +14,7 @@ a single resource, to be interpreted as a list of one
 -- A resource may be represented by a single string value to be interpreted as the URI
 """
 
-def force_as_object( json_data , default_type=None):
+def force_as_object( json_data , default_type=None) -> dict:
     """
     argument
     json_data : None, a python dict, or a StringProperty
@@ -93,4 +93,15 @@ def force_as_list( obj ):
         return [obj]
     return obj
     
-    
+def axes_named_values( xyzObj : dict ) -> tuple[float]:
+    """
+    xyzObj a python dictionary with optional
+    value x, y,z  that have values convertible to floats
+    if valuues not present they will be assigned to 0.0
+    returned as a (3,) tuple in xyz order
+    """   
+    return (
+        float(xyzObj.get('x', 0)),
+        float(xyzObj.get('y', 0)),
+        float(xyzObj.get('z', 0))         
+    )
