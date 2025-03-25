@@ -55,7 +55,7 @@ class Coordinates:
 
     @staticmethod
     def iiif_to_blender(iiif_coords):
-        return (iiif_coords[0], -iiif_coords[2], iiif_coords[1])
+        return Vector((iiif_coords[0], -iiif_coords[2], iiif_coords[1]))
 
     @staticmethod
     def blender_to_iiif(blender_coords):
