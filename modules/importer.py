@@ -344,7 +344,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         """Process the manifest data and import the model"""
 
         # Store manifest metadata on the main scene collection
-        main_collection = self.create_or_get_collection("IIIF Scene")
+        main_collection = self.create_or_get_collection("IIIF Manifest")
         metadata = IIIFMetadata(main_collection)
         metadata.store_manifest(manifest_data)
 
