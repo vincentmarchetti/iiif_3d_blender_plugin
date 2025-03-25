@@ -13,7 +13,7 @@ from mathutils import Vector
 from .metadata import IIIFMetadata
 from .utils.color import hex_to_rgba
 from .utils.coordinates import Coordinates
-from .utils.json_patterns import force_as_object, force_as_singleton, force_as_list
+from .utils.json_patterns import force_as_object, force_as_singleton, force_as_list, axes_named_values
 import math
 
 import logging
@@ -141,39 +141,42 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
     def position_camera(self, cam_obj: Object, target_data: dict) -> None:
         """Position the camera based on target data"""
         # Get camera position from selector
-        selectors = target_data.get('selector', [])
-        if isinstance(selectors, list) and len(selectors) > 0:
-            selector = selectors[0]
-            if selector.get('type') == 'PointSelector':
-                cam_obj.location = \
-                Coordinates.iiif_to_blender(
-                    Coordinates.get_iiif_coords_from_pointselector(selector)
-                )
-
+        selector  = force_as_singleton( target_data.get("type") in {"SpecificResource"} and \
+                                        target_data.get('selector', None))
+                                      
+        if selector and elector.get('type') == 'PointSelector':
+            iiif_coords = axes_named_values(selector)
+        else:
+            iiif_coords = (0.0,0.0,0.0)
+        cam_obj.location =  Coordinates.iiif_to_blender( iiif_coords )
+ 
     def set_camera_target(self, cam_obj: Object, look_at_data: dict) -> None:
         """Set the camera's look-at target"""
         if look_at_data.get('type') == 'PointSelector':
             target_location = Coordinates.iiif_to_blender(
-                Vector((
-                    float(look_at_data.get('x', 0)),
-                    float(look_at_data.get('y', 0)),
-                    float(look_at_data.get('z', 0))
-                ))
+                axes_named_values(look_at_data)
             )
+            logger.info("lookAt PointSelector: %r" % target_location )
             self.point_camera_at_target(cam_obj, target_location)
         elif look_at_data.get('type') == 'Annotation':
             target_id = look_at_data.get('id')
             if target_id:
                 center = self.get_annotation_bounds_center(target_id)
+                logger.info("lookAt Annotation: %r" % center )
                 self.point_camera_at_target(cam_obj, center)
 
-    def point_camera_at_target(self, cam_obj: Object, target_location: Vector | tuple[float, float, float]) -> None:
-        """Point the camera at a specific location"""
+    def point_camera_at_target(self, cam_obj: Object, target_location: Vector ) -> None:
+        """
+        Point the camera at a specific location
+        target_location is to be a Vector instance in Blender coordinate system
+        """
         # Convert target location if it's not already a Vector
-        target_vec = Coordinates.convert_to_vector(target_location)
-        direction = target_vec - cam_obj.location
+        direction = target_location - cam_obj.location
+        logger.info("point_camera_at_target from %r to %r" % (cam_obj.location, target_location))
         rot_quat = direction.to_track_quat('-Z', 'Y')
-        cam_obj.rotation_euler = rot_quat.to_euler()
+        logger.info("lookAt direction: %r as rotation %r" % (direction, rot_quat))
+        cam_obj.rotation_mode = "QUATERNION"
+        cam_obj.rotation_quaternion = rot_quat
 
     def create_or_get_collection(self, name: str, parent: Collection | None = None) -> Collection:
         """Create a new collection or get existing one"""
@@ -229,11 +232,8 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         
         if transform_data:
             rotation_data = force_as_singleton([ t for t in transform_data if t['type'] in {"RotateTransform"}])
-            if rotation_data:
-                x_angle = rotation_data.get("x", 0.0)
-                y_angle = rotation_data.get("y", 0.0)
-                z_angle = rotation_data.get("z", 0.0)
-                iiif_angles = (x_angle,y_angle,z_angle )
+            if rotation_data:                
+                iiif_angles = axes_named_values( rotation_data)
                 blender_euler = Coordinates.model_transform_angles_to_blender_euler_angle(iiif_angles)
                 logger.debug("implement IIIF rotation: %r as %r" % (iiif_angles,blender_euler))
                 new_model.rotation_mode  = blender_euler.order
@@ -241,19 +241,29 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             
             scale_data = force_as_singleton([ t for t in transform_data if t['type'] in {"ScaleTransform"}])
             if scale_data:
-                x_scale = scale_data.get("x", 0.0)
-                y_scale = scale_data.get("y", 0.0)
-                z_scale = scale_data.get("z", 0.0)
-                
+                axes_scale = axes_named_values(scale_data)
                 # pending clarification by Presentation 4 editors will only 
                 # support uniform scale by a positive value
-                if not ( x_scale == y_scale and y_scale == z_scale):
-                    logger.warn("non-uniform scale factors not supported: %s" % ((x_scale, y_scale, z_scale),))
-                elif ( x_scale <= 0.0):
-                    logger.warn("non-positive scale %f not supported" % x_scale )
+                if not ( axes_scale[0] == axes_scale[1] and axes_scale[1] == axes_scale[2]):
+                    logger.warn("non-uniform scale factors not supported: %s" % (axes_scale,))
+                elif ( axes_scale[0] <= 0.0):
+                    logger.warn("non-positive scale %f not supported" % axes_scale[0] )
                 else:
-                    new_model.scale = Vector( (x_scale, x_scale, x_scale) )
-                    
+                    new_model.scale = Vector( axes_scale )
+                 
+                 
+            translateTransforms =  [ t for t in transform_data if t['type'] in {"TranslateTransform"}] 
+            if len(translateTransforms) > 1:
+                logger.warn("multiple TranslateTransform instances in transform property not supported")
+            elif len(translateTransforms) == 1:
+                translate_data = translateTransforms[0]
+                if translate_data != transform_data[-1]:
+                    logger,warning("TranslateTransform must be last item of transforms value")
+                translate_vector = Coordinates.iiif_to_blender( axes_named_values(translate_data))
+                new_model.location = new_model.location + translate_vector
+                
+                
+                
         target_data = force_as_object(
                         force_as_singleton(annotation_data.get('target', None)),
                         default_type="Scene")
@@ -261,13 +271,10 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         if target_data and target_data["type"] in {"SpecificResource"}:
             selector_data = force_as_singleton( target_data.get("selector", None))
             if selector_data and selector_data["type"] in {"PointSelector"}:
-                x_pos = selector_data.get("x", 0.0)
-                y_pos = selector_data.get("y", 0.0)
-                z_pos = selector_data.get("z", 0.0)
-                iiif_pos = (x_pos,y_pos,z_pos)
+                iiif_pos = axes_named_values(selector_data)
                 blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
                 logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
-                new_model.location = blender_vector
+                new_model.location = new_model.location + blender_vector
                 
 
         # Move newly imported objects to the parent collection and store metadata
@@ -309,6 +316,22 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         metadata = IIIFMetadata(cam_obj)
         metadata.store_annotation(annotation_data)
 
+        
+        # position camera
+        target_data = force_as_object(
+                        force_as_singleton(annotation_data.get('target', None)),
+                        default_type="Scene")
+        if target_data and target_data["type"] in {"SpecificResource"}:
+            selector_data = force_as_singleton( target_data.get("selector", None))
+            if selector_data and selector_data["type"] in {"PointSelector"}:
+                x_pos = selector_data.get("x", 0.0)
+                y_pos = selector_data.get("y", 0.0)
+                z_pos = selector_data.get("z", 0.0)
+                iiif_pos = (x_pos,y_pos,z_pos)
+                blender_vector=  Coordinates.iiif_to_blender(iiif_pos)
+                logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
+                cam_obj.location = blender_vector
+
         # orient camera_data
         # Set camera target
         look_at_data = force_as_singleton(camera_data.get('lookAt', None))
@@ -335,21 +358,6 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             logger.debug("implement IIIF rotation: %s as Blender %r" % (iiif_angles,blender_euler))
             cam_obj.rotation_mode  = blender_euler.order
             cam_obj.rotation_euler = blender_euler
-        
-        # position camera
-        target_data = force_as_object(
-                        force_as_singleton(annotation_data.get('target', None)),
-                        default_type="Scene")
-        if target_data and target_data["type"] in {"SpecificResource"}:
-            selector_data = force_as_singleton( target_data.get("selector", None))
-            if selector_data and selector_data["type"] in {"PointSelector"}:
-                x_pos = selector_data.get("x", 0.0)
-                y_pos = selector_data.get("y", 0.0)
-                z_pos = selector_data.get("z", 0.0)
-                iiif_pos = (x_pos,y_pos,z_pos)
-                blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
-                logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
-                cam_obj.location = blender_vector
 
         
 
