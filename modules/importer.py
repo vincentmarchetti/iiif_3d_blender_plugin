@@ -148,12 +148,12 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             iiif_coords = axes_named_values(selector)
         else:
             iiif_coords = (0.0,0.0,0.0)
-        cam_obj.location =  Coordinates.iiif_to_blender( iiif_coords )
+        cam_obj.location =  Coordinates.iiif_position_to_blender_vector( iiif_coords )
  
     def set_camera_target(self, cam_obj: Object, look_at_data: dict) -> None:
         """Set the camera's look-at target"""
         if look_at_data.get('type') == 'PointSelector':
-            target_location = Coordinates.iiif_to_blender(
+            target_location = Coordinates.iiif_position_to_blender_vector(
                 axes_named_values(look_at_data)
             )
             logger.info("lookAt PointSelector: %r" % target_location )
@@ -234,7 +234,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             rotation_data = force_as_singleton([ t for t in transform_data if t['type'] in {"RotateTransform"}])
             if rotation_data:                
                 iiif_angles = axes_named_values( rotation_data)
-                blender_euler = Coordinates.model_transform_angles_to_blender_euler_angle(iiif_angles)
+                blender_euler = Coordinates.model_transform_angles_to_blender_euler(iiif_angles)
                 logger.debug("implement IIIF rotation: %r as %r" % (iiif_angles,blender_euler))
                 new_model.rotation_mode  = blender_euler.order
                 new_model.rotation_euler = blender_euler
@@ -259,7 +259,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                 translate_data = translateTransforms[0]
                 if translate_data != transform_data[-1]:
                     logger.warning("TranslateTransform must be last item of transforms value")
-                translate_vector = Coordinates.iiif_to_blender( axes_named_values(translate_data))
+                translate_vector = Coordinates.iiif_position_to_blender_vector( axes_named_values(translate_data))
                 new_model.location = new_model.location + translate_vector
                 
                 
@@ -272,7 +272,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             selector_data = force_as_singleton( target_data.get("selector", None))
             if selector_data and selector_data["type"] in {"PointSelector"}:
                 iiif_pos = axes_named_values(selector_data)
-                blender_vector= Vector( Coordinates.iiif_to_blender(iiif_pos))
+                blender_vector= Coordinates.iiif_position_to_blender_vector(iiif_pos)
                 logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
                 new_model.location = new_model.location + blender_vector
                 
@@ -325,7 +325,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             selector_data = force_as_singleton( target_data.get("selector", None))
             if selector_data and selector_data["type"] in {"PointSelector"}:
                 iiif_pos = axes_named_values(selector_data)
-                blender_vector=  Coordinates.iiif_to_blender(iiif_pos)
+                blender_vector=  Coordinates.iiif_position_to_blender_vector(iiif_pos)
                 logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
                 cam_obj.location = blender_vector
 
@@ -348,7 +348,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                 return
             rotation_data = transform_data[0]
             iiif_angles = axes_named_values(rotation_data)            
-            blender_euler = Coordinates.camera_transform_angles_to_blender_euler_angle(iiif_angles)
+            blender_euler = Coordinates.camera_transform_angles_to_blender_euler(iiif_angles)
             logger.debug("implement IIIF rotation: %s as Blender %r" % (iiif_angles,blender_euler))
             cam_obj.rotation_mode  = blender_euler.order
             cam_obj.rotation_euler = blender_euler
