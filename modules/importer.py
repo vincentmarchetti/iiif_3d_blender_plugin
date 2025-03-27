@@ -61,9 +61,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         file_ext = os.path.splitext(filepath)[1].lower()
 
         if file_ext == '.glb' or file_ext == '.gltf':
-            import_func = bpy.ops.import_scene.gltf
             bpy.ops.import_scene.gltf(filepath=filepath)
-            ao = bpy.context.active_object
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
@@ -128,7 +126,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
             if foV is not None:
                 try:
                     foV = float(foV)
-                except:
+                except (TypeError, ValueError):
                     logger.error("fieldOfView value %r cannot be cast to number" % (foV,))
             foV = foV or foV_default
             cam_obj.data.angle_y = math.radians(foV) # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
@@ -202,9 +200,6 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         if not context:
             self.report({'ERROR'}, "No active context")
             return
-
-        # Store the current collection
-        previous_collection = context.view_layer.active_layer_collection.collection
 
         # Set the parent collection as active
         layer_collection = context.view_layer.layer_collection
@@ -446,7 +441,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                     default_type = "Model")
         if body is None:
             bodyValue = force_as_singleton(annotation_data.get('bodyValue', None))
-            if type( bodyValue ) == str:
+            if type( bodyValue ) is str:
                 body = {
                     "type" : "TextualBody",
                     "value" : bodyValue

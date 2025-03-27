@@ -32,10 +32,10 @@ def force_as_object( json_data , default_type=None) -> dict:
     If string, and can be interprerted as a URI, will
     be returned wrapped in a dict with that value as the id property
     """
-    if json_data is None or type(json_data) == dict:
+    if json_data is None or type(json_data) is dict:
         return json_data
         
-    if type(json_data) == str:
+    if type(json_data) is str:
         # placeholder: at this point in code eventually will
         # determine if json_data is a URI from which the resource
         # can be rechieved by a remote query
