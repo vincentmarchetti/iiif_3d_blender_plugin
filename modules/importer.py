@@ -131,11 +131,11 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                 except:
                     logger.error("fieldOfView value %r cannot be cast to number" % (foV,))
             foV = foV or foV_default
-            cam_obj.data.angle_y = math.radians(foV)
+            cam_obj.data.angle_y = math.radians(foV) # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             
             # this assignment just directs the Blender UI to show the 
             # Field Of View vertical angle value
-            cam_obj.data.sensor_fit = 'VERTICAL'
+            cam_obj.data.sensor_fit = 'VERTICAL' # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
         return cam_obj
 
     def position_camera(self, cam_obj: Object, target_data: dict) -> None:
@@ -245,20 +245,20 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                 # pending clarification by Presentation 4 editors will only 
                 # support uniform scale by a positive value
                 if not ( axes_scale[0] == axes_scale[1] and axes_scale[1] == axes_scale[2]):
-                    logger.warn("non-uniform scale factors not supported: %s" % (axes_scale,))
+                    logger.warning("non-uniform scale factors not supported: %s" % (axes_scale,))
                 elif ( axes_scale[0] <= 0.0):
-                    logger.warn("non-positive scale %f not supported" % axes_scale[0] )
+                    logger.warning("non-positive scale %f not supported" % axes_scale[0] )
                 else:
                     new_model.scale = Vector( axes_scale )
                  
                  
             translateTransforms =  [ t for t in transform_data if t['type'] in {"TranslateTransform"}] 
             if len(translateTransforms) > 1:
-                logger.warn("multiple TranslateTransform instances in transform property not supported")
+                logger.warning("multiple TranslateTransform instances in transform property not supported")
             elif len(translateTransforms) == 1:
                 translate_data = translateTransforms[0]
                 if translate_data != transform_data[-1]:
-                    logger,warning("TranslateTransform must be last item of transforms value")
+                    logger.warning("TranslateTransform must be last item of transforms value")
                 translate_vector = Coordinates.iiif_to_blender( axes_named_values(translate_data))
                 new_model.location = new_model.location + translate_vector
                 
@@ -324,10 +324,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         if target_data and target_data["type"] in {"SpecificResource"}:
             selector_data = force_as_singleton( target_data.get("selector", None))
             if selector_data and selector_data["type"] in {"PointSelector"}:
-                x_pos = selector_data.get("x", 0.0)
-                y_pos = selector_data.get("y", 0.0)
-                z_pos = selector_data.get("z", 0.0)
-                iiif_pos = (x_pos,y_pos,z_pos)
+                iiif_pos = axes_named_values(selector_data)
                 blender_vector=  Coordinates.iiif_to_blender(iiif_pos)
                 logger.debug("placing model at iiif coordinates %r blender: %r" % (iiif_pos,blender_vector))
                 cam_obj.location = blender_vector
@@ -339,21 +336,18 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                                         specific_resource_data.get("transform", None))
         
         if look_at_data is None and transform_data == []:
-            logger.warn("camera has no orientation specified")
+            logger.warning("camera has no orientation specified")
         if look_at_data is not None and len(transform_data) > 0:
-            logger.warn("ambigous camera orienttion; using lookAt")
+            logger.warning("ambigous camera orientation; using lookAt; ignoring transform")
         
         if look_at_data:
             self.set_camera_target(cam_obj, look_at_data)
         elif transform_data:
             if not (len(transform_data) == 1 and transform_data[0].get("type",None) == "RotateTransform"):
-                logger.error("Unsupported transforms resource %r" % transforms_data)
+                logger.error("Unsupported transforms resource %r" % transform_data)
                 return
             rotation_data = transform_data[0]
-            x_angle = rotation_data.get("x", 0.0)
-            y_angle = rotation_data.get("y", 0.0)
-            z_angle = rotation_data.get("z", 0.0)
-            iiif_angles = (x_angle,y_angle,z_angle )            
+            iiif_angles = axes_named_values(rotation_data)            
             blender_euler = Coordinates.camera_transform_angles_to_blender_euler_angle(iiif_angles)
             logger.debug("implement IIIF rotation: %s as Blender %r" % (iiif_angles,blender_euler))
             cam_obj.rotation_mode  = blender_euler.order
@@ -458,7 +452,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
                     "value" : bodyValue
                 }
             else:
-                logger.warn("annotation %s has no body property" % annotation_data["id"])
+                logger.warning("annotation %s has no body property" % annotation_data["id"])
                 return
                  
         if body['type'] == 'Model':
@@ -470,7 +464,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         elif body['type'] == 'SpecificResource':
             self.process_annotation_specific_resource(annotation_data, parent_collection)
         else:
-            logger.warn("body type %s not supported for Blender" % body["type"])
+            logger.warning("body type %s not supported for Blender" % body["type"])
 
     def process_annotation_page(self, annotation_page_data: dict, scene_collection: Collection) -> None:
         page_collection = self.create_or_get_collection(self.get_iiif_id_or_label(annotation_page_data), scene_collection)
