@@ -144,7 +144,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
         selector  = force_as_singleton( target_data.get("type") in {"SpecificResource"} and \
                                         target_data.get('selector', None))
                                       
-        if selector and elector.get('type') == 'PointSelector':
+        if selector and selector.get('type') == 'PointSelector':
             iiif_coords = axes_named_values(selector)
         else:
             iiif_coords = (0.0,0.0,0.0)
