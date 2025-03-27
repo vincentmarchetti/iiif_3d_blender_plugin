@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("json_patterns")
 
 """
 collection of module level functions to support some of the json patterns which
@@ -93,7 +95,7 @@ def force_as_list( obj ):
         return [obj]
     return obj
     
-def axes_named_values( xyzObj : dict ) -> tuple[float]:
+def axes_named_values( xyzObj : dict ) -> tuple[float,float,float]:
     """
     xyzObj a python dictionary with optional
     value x, y,z  that have values convertible to floats

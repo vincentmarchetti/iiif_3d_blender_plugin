@@ -70,7 +70,7 @@ class Coordinates:
         ))
 
     @staticmethod
-    def convert_to_vector(coords: dict | tuple[float, float, float] | Vector) -> Vector:
+    def convert_to_vector(coords: dict | Sequence[float]) -> Vector:
         if isinstance(coords, dict):
             return Coordinates.get_iiif_coords_from_pointselector(coords)
         return Vector(coords)
