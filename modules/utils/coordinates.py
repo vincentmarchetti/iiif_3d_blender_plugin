@@ -48,35 +48,19 @@ class Coordinates:
     convert the (xi,yi,zi) coordinates of a PointSelectore resource into 
     the (xb,yb,zb) coordinated of where to "locate" a mesh in Blender scene.
     
-    This is the conversion implemented by function iiif_to_blender
+    This is the conversion implemented by function iiif_position_to_blender_vector
     """
 
     
 
     @staticmethod
-    def iiif_to_blender(iiif_coords):
+    def iiif_position_to_blender_vector(iiif_coords : tuple[float,float,float]) -> Vector :
         return Vector((iiif_coords[0], -iiif_coords[2], iiif_coords[1]))
 
-    @staticmethod
-    def blender_to_iiif(blender_coords):
-        return (blender_coords[0], blender_coords[2], -blender_coords[1])
 
-    @staticmethod
-    def get_iiif_coords_from_pointselector(selector: dict) -> Vector:
-        return Vector((
-            float(selector.get('x', 0)),
-            float(selector.get('y', 0)),
-            float(selector.get('z', 0))
-        ))
-
-    @staticmethod
-    def convert_to_vector(coords: dict | Sequence[float]) -> Vector:
-        if isinstance(coords, dict):
-            return Coordinates.get_iiif_coords_from_pointselector(coords)
-        return Vector(coords)
         
     @staticmethod
-    def model_transform_angles_to_blender_euler_angle(angles):
+    def model_transform_angles_to_blender_euler(angles : tuple[float,float,float] ) -> Euler:
         """
         Returrns a Blender Euler instance that gives same geometric rotation as an
         IIIF RotateTransform
@@ -114,7 +98,7 @@ class Coordinates:
         return Euler( blender_axes, order)
         
     @staticmethod
-    def camera_transform_angles_to_blender_euler_angle(angles):
+    def camera_transform_angles_to_blender_euler(angles : tuple[float,float,float] ) -> Euler:
         """
         Returns a Blender Euler instance that applied to a Blender camera results
         in the same camera orientation as a RotateTransform applied to a IIIF Camera.
@@ -156,4 +140,25 @@ class Coordinates:
         blender_axes = ( x_blender_angle, y_blender_angle, z_blender_angle)
         order='ZYX'
         return Euler( blender_axes, order)
+        
+    @staticmethod
+    def iiif_to_blender(iiif_coords):
+        return (iiif_coords[0], iiif_coords[1], iiif_coords[2])
 
+    @staticmethod
+    def blender_to_iiif(blender_coords):
+        return (blender_coords[0], blender_coords[1], blender_coords[2])
+
+    @staticmethod
+    def get_iiif_coords_from_pointselector(selector: dict) -> Vector:
+        return Vector((
+            float(selector.get('x', 0)),
+            float(selector.get('y', 0)),
+            float(selector.get('z', 0))
+        ))
+
+    @staticmethod
+    def convert_to_vector(coords: dict | tuple[float, float, float] | Vector) -> Vector:
+        if isinstance(coords, dict):
+            return Coordinates.get_iiif_coords_from_pointselector(coords)
+        return Vector(coords)
