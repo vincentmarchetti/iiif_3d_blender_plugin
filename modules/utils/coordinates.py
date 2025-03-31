@@ -1,6 +1,6 @@
-from mathutils import Vector, Euler
+from mathutils import Vector, Euler, Quaternion
 import math
-
+import typing
 
 class Coordinates:
     """Helper class for converting between IIIF and Blender coordinates
@@ -53,9 +53,15 @@ class Coordinates:
 
     @staticmethod
     def iiif_position_to_blender_vector(
-        iiif_coords: tuple[float, float, float],
+        iiif_coords: tuple[float, float, float]
     ) -> Vector:
         return Vector((iiif_coords[0], -iiif_coords[2], iiif_coords[1]))
+        
+    @staticmethod
+    def blender_vector_to_iiif_position(
+        vec: Vector
+    ) -> tuple[float, float, float]:
+        return (vec[0], vec[2], -vec[1] )
 
     @staticmethod
     def model_transform_angles_to_blender_euler(
@@ -97,6 +103,26 @@ class Coordinates:
         blender_axes = (x_blender_angle, y_blender_angle, z_blender_angle)
         return Euler(blender_axes, order)
 
+    @staticmethod
+    def blender_rotation_to_model_transform_angles(
+        rotation: Euler | Quaternion
+    ) -> tuple[float, float, float]:
+        euler_rotation = Coordinates.coerce_to_euler(rotation,"YZX")
+        return (
+            math.degrees( euler_rotation.x),
+            math.degrees( euler_rotation.z),
+            math.degrees(-euler_rotation.y)
+        )
+        
+
+    @staticmethod
+    def coerce_to_euler( rotation : Euler | Quaternion , order:str ) -> Euler:
+        if isinstance(rotation, Euler) and rotation.order != order :
+            return rotation.to_quaternion().to_euler(order)
+        elif isinstance(rotation, Quaternion):
+            return rotation.to_euler(order)
+        return rotation
+        
     @staticmethod
     def camera_transform_angles_to_blender_euler(
         angles: tuple[float, float, float],
@@ -143,6 +169,17 @@ class Coordinates:
         return Euler(blender_axes, order)
 
     @staticmethod
+    def blender_rotation_to_camera_transform_angles(
+        rotation: Euler | Quaternion 
+    ) -> tuple[float, float, float]:
+        euler_rotation=Coordinates.coerce_to_euler( rotation, "ZYX")
+        return (
+            math.degrees(rotation.x) - 90.0,
+            math.degrees(rotation.y),
+            math.degrees(rotation.z)
+        )
+        
+    @staticmethod
     def iiif_to_blender(iiif_coords):
         return (iiif_coords[0], iiif_coords[1], iiif_coords[2])
 
@@ -164,4 +201,7 @@ class Coordinates:
     def convert_to_vector(coords: dict | tuple[float, float, float] | Vector) -> Vector:
         if isinstance(coords, dict):
             return Coordinates.get_iiif_coords_from_pointselector(coords)
-        return Vector(coords)
+        elif type(coords) == type( () ) and len(coords) == 3:            
+            return Vector( typing.cast( tuple, coords ) )
+        else:
+            return typing.cast(Vector, coords)
