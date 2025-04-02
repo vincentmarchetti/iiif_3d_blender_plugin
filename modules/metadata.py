@@ -4,7 +4,23 @@ from typing import Any, Dict, Optional
 
 
 class IIIFMetadata:
-    """Helper class to manage IIIF metadata on Blender objects"""
+    """Helper class to manage IIIF metadata on Blender objects
+    Instances of this class only store a reference to a Blender object
+    and implement a mechanism to store key-value pairs (dict-like behavior)
+    but with the key string prefixed with "iiif_" to avoid key collisions
+    Blender properties defined on the Blender obj
+    
+    the values stored are strings, often json encoded data.
+    
+    For example, the store_manifest method is used in the importer.process_manifest
+    method to attach a json-encoded manifest_data (a json object) in the main_collection,
+    which is the topmost created collection named "IIIF Manifest"
+    
+    It appears to be used in process_annotation_model to store a copy of the 
+    annotation_data (dict); encoded as json, with the model object
+    
+    And likewise a copy of the annotation_data is stored in the camera obj
+    """
 
     def __init__(self, obj: Any):
         """Initialize with a Blender object"""
