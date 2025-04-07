@@ -111,3 +111,34 @@ def axes_named_values(xyzObj: dict) -> tuple[float, float, float]:
         float(xyzObj.get("y", 0)),
         float(xyzObj.get("z", 0)),
     )
+    
+def create_axes_named_values(iiif_type:str , vals : tuple[float, float, float] ) -> dict :
+    """
+    returns a dictionay with key "id" set to the iiif_type
+    and keys "x", "y", "z" set to the tuple values, in order
+    
+    ex iiif_type in ["PointSelector", "RotateTransform"]
+    """
+    return {
+        "type" : iiif_type,
+        "x"  : vals[0],
+        "y"  : vals[1],
+        "z"  : vals[2]
+    }
+    
+
+def get_source_resource( resource : dict ) -> dict | None :
+    """
+    to be applied when resource is the body or target of an annotation
+    
+    will identfify when resource is a "SpecificResource", if so
+    return the source
+    Otherwise, return resource
+    """
+    
+    if resource and resource.get("type") == "SpecificResource":
+        return force_as_singleton( resource.get("source"))
+    else:
+        return resource
+    
+
