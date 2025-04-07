@@ -7,8 +7,21 @@ from bpy.types import Context, Operator
 from bpy_extras.io_utils import ExportHelper
 
 from .metadata import IIIFMetadata
-from .utils.color import rgba_to_hex
+from .utils.color import hex_to_rgba
+from .utils.coordinates import Coordinates
+from .utils.json_patterns import (
+    force_as_object,
+    force_as_singleton,
+    force_as_list,
+    axes_named_values,
+    create_axes_named_values,
+    get_source_resource
+)
 
+import math
+
+import logging
+logger = logging.getLogger("export")
 
 class ExportIIIF3DManifest(Operator, ExportHelper):
     """Export IIIF 3D Manifest"""
@@ -167,6 +180,60 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             },
             "target": "https://example.org/iiif/scene1/page/p1/1"
         }
+        
+    def get_camera_annotation(self, obj: bpy.types.Object) -> dict:
+        """Get annotation data from metadata or create new"""
+        metadata = IIIFMetadata(obj)
+        annotation_data = metadata.get_annotation()
+
+        try:
+            quat = obj.rotation_quaternion
+            vec  = obj.location
+            
+            iiif_rotation = Coordinates.blender_rotation_to_model_transform_angles(quat)
+            iiif_position = Coordinates.blender_vector_to_iiif_position(vec)
+            logger.info("iiif: position: %r  rotation %r" % (iiif_position, iiif_rotation ))
+        except Exception as exc:
+            logger.exception("failed camera ", exc)
+
+        target = force_as_object(force_as_singleton(annotation_data.get("target")))
+        target_source = get_source_resource( target )
+        
+        body = force_as_singleton(annotation_data.get("body"))
+        iiif_camera = get_source_resource( body )
+        
+        # this will remove a camera "lookAt" property if it exists
+        old_lookAt = iiif_camera.pop("lookAt", None)
+        
+        new_body = {
+            "type" : "SpecificResource",
+            "source" : iiif_camera,
+            "transform" : [create_axes_named_values("RotateTransform", iiif_rotation)]
+        }
+        annotation_data["body"] = new_body
+             
+        new_target= {
+            "type" : "SpecificResource",
+            "source" : target_source,
+            "selector" : create_axes_named_values("PointSelector", iiif_position)
+        }
+           
+        annotation_data["target"] = new_target        
+        if annotation_data:
+            return annotation_data
+
+        # Fall back to new annotation
+        return {
+            "id": f"https://example.org/iiif/3d/anno_{obj.name}",
+            "type": "Annotation",
+            "motivation": ["painting"],
+            "body": {
+                "id": obj.get('iiif_source_url', f"local://models/{obj.name}"),
+                "type": "Model"
+            },
+            "target": "https://example.org/iiif/scene1/page/p1/1"
+        }
+
 
     def get_annotation_page(self, scene_data: dict, collection: bpy.types.Collection) -> dict:
         """Build annotation page for a scene"""
@@ -194,8 +261,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
                 elif obj.type == 'LIGHT':
                     annotation_page["items"].append(self.get_light_annotation(obj))
                 elif obj.type == 'CAMERA':
-                    metadata = IIIFMetadata(obj)
-                    anno_data = metadata.get_annotation()
+                    anno_data = self.get_camera_annotation(obj)
                     if anno_data:
                         annotation_page["items"].append(anno_data)
 
