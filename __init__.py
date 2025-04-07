@@ -1,9 +1,4 @@
-from bpy.types import (
-    TOPBAR_MT_file_export,
-    TOPBAR_MT_file_import,
-    OBJECT_PT_custom_props,
-    COLLECTION_PT_collection_custom_props
-)
+from bpy.types import TOPBAR_MT_file_export, TOPBAR_MT_file_import
 from bpy.utils import register_class, unregister_class
 
 from .modules.exporter import ExportIIIF3DManifest
