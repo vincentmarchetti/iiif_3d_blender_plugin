@@ -174,9 +174,9 @@ class Coordinates:
     ) -> tuple[float, float, float]:
         euler_rotation=Coordinates.coerce_to_euler( rotation, "ZYX")
         return (
-            math.degrees(rotation.x) - 90.0,
-            math.degrees(rotation.y),
-            math.degrees(rotation.z)
+            math.degrees(euler_rotation.x) - 90.0,
+            math.degrees(euler_rotation.y),
+            math.degrees(euler_rotation.z)
         )
         
     @staticmethod
