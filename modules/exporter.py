@@ -181,16 +181,19 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             "target": "https://example.org/iiif/scene1/page/p1/1"
         }
         
-    def get_camera_annotation(self, obj: bpy.types.Object) -> dict:
+    def get_camera_annotation(self, blender_camera: bpy.types.Object) -> dict:
         """Get annotation data from metadata or create new"""
-        metadata = IIIFMetadata(obj)
+        metadata = IIIFMetadata(blender_camera)
         annotation_data = metadata.get_annotation()
 
         try:
-            quat = obj.rotation_quaternion
-            vec  = obj.location
+            saved_mode = blender_camera.rotation_mode
+            blender_camera.rotation_mode = "QUATERNION"
+            quat = blender_camera.rotation_quaternion
+            blender_camera.rotation_mode = saved_mode
+            vec  = blender_camera.location
             
-            iiif_rotation = Coordinates.blender_rotation_to_model_transform_angles(quat)
+            iiif_rotation = Coordinates.blender_rotation_to_camera_transform_angles(quat)
             iiif_position = Coordinates.blender_vector_to_iiif_position(vec)
             logger.info("iiif: position: %r  rotation %r" % (iiif_position, iiif_rotation ))
         except Exception as exc:
@@ -205,35 +208,21 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         # this will remove a camera "lookAt" property if it exists
         old_lookAt = iiif_camera.pop("lookAt", None)
         
-        new_body = {
+        iiif_camera["fieldOfView"] =  math.degrees(blender_camera.data.angle_y)
+        
+        annotation_data["body"] = {
             "type" : "SpecificResource",
             "source" : iiif_camera,
             "transform" : [create_axes_named_values("RotateTransform", iiif_rotation)]
         }
-        annotation_data["body"] = new_body
              
-        new_target= {
+        annotation_data["target"]= {
             "type" : "SpecificResource",
             "source" : target_source,
             "selector" : create_axes_named_values("PointSelector", iiif_position)
-        }
-           
-        annotation_data["target"] = new_target        
-        if annotation_data:
-            return annotation_data
+        }           
 
-        # Fall back to new annotation
-        return {
-            "id": f"https://example.org/iiif/3d/anno_{obj.name}",
-            "type": "Annotation",
-            "motivation": ["painting"],
-            "body": {
-                "id": obj.get('iiif_source_url', f"local://models/{obj.name}"),
-                "type": "Model"
-            },
-            "target": "https://example.org/iiif/scene1/page/p1/1"
-        }
-
+        return annotation_data
 
     def get_annotation_page(self, scene_data: dict, collection: bpy.types.Collection) -> dict:
         """Build annotation page for a scene"""
