@@ -181,10 +181,34 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             "target": "https://example.org/iiif/scene1/page/p1/1"
         }
         
+    def new_camera_annotation(self, blender_camera: bpy.types.Object ) -> dict:
+        camera_data = {
+            "id" : f"https://example.org/iiif/3d/camera_{blender_camera.name}",
+            "type" : "PerspectiveCamera"
+        }
+        
+        annotation_data = {
+            "id" : f"https://example.org/iiif/3d/anno_{blender_camera.name}",
+            "type" : "Annotation",
+            "motivation" : ["painting"],            
+        }
+        
+        annotation_data["target"] = {
+            "id" : "https://example.org/iiif/scene1/page/p1/1",
+            "type" : "Scene"
+        }
+        
+        annotation_data["body"] = camera_data
+        return annotation_data
+        
     def get_camera_annotation(self, blender_camera: bpy.types.Object) -> dict:
         """Get annotation data from metadata or create new"""
         metadata = IIIFMetadata(blender_camera)
         annotation_data = metadata.get_annotation()
+        
+        if annotation_data is None:
+            annotation_data = self.new_camera_annotation(blender_camera)
+        
 
         try:
             saved_mode = blender_camera.rotation_mode
@@ -208,7 +232,9 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         # this will remove a camera "lookAt" property if it exists
         old_lookAt = iiif_camera.pop("lookAt", None)
         
-        iiif_camera["fieldOfView"] =  math.degrees(blender_camera.data.angle_y)
+        blender_y_angle = blender_camera.data.angle_y
+        logger.info("blender vertical FoV %.3e radians" % blender_y_angle)
+        iiif_camera["fieldOfView"] =  math.degrees(blender_y_angle)
         
         annotation_data["body"] = {
             "type" : "SpecificResource",
