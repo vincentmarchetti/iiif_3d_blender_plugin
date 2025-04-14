@@ -567,7 +567,7 @@ class ImportIIIF3DManifest(Operator, ImportHelper):
 
         metadata = IIIFMetadata(scene_collection)
         metadata.store_scene(scene_data)
-        metadata.store_manifest(self.manifest_data)
+        #metadata.store_manifest(self.manifest_data)
 
         if "backgroundColor" in scene_data:
             self.report(
