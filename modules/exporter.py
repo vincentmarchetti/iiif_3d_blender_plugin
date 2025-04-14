@@ -42,9 +42,24 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
     )
 
     def get_scene_data(self, context: Context, collection: bpy.types.Collection) -> dict | None:
-        """Get scene data from metadata or create new"""
+        """Get scene data from metadata or create new
+           Collection should be the Blender Collection corresponding to the IIIF Scene
+        """
+        # sanity check
+        iiif_type = collection.get("iiif_type", None)
+        if  iiif_type == "scene":
+            scene_id = collection.get("iiif_id",None)
+            if not scene_id:
+                logger.warning("invalid id for exporting scene %r" % (scene_id,))
+            else:
+                logger.info("creating json data for IIIF scene %s" % scene_id )
+        else:
+            logger.warning("invalid collection passed to get_scene_data : %r" % (iiif_type,))
+            
         metadata = IIIFMetadata(collection)
         scene_data = metadata.get_scene()
+        
+        
 
         if scene_data:
             # Only update background color if it was originally present
@@ -201,7 +216,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         annotation_data["body"] = camera_data
         return annotation_data
         
-    def get_camera_annotation(self, blender_camera: bpy.types.Object) -> dict:
+    def get_camera_annotation(self, blender_camera: bpy.types.Object, scene_collection: bpy.types.Collection ) -> dict:
         """Get annotation data from metadata or create new"""
         metadata = IIIFMetadata(blender_camera)
         annotation_data = metadata.get_annotation()
@@ -225,6 +240,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 
         target = force_as_object(force_as_singleton(annotation_data.get("target")))
         target_source = get_source_resource( target )
+        target_source["id"] = scene_collection.get("iiif_id", "https://example.com/not_available")
         
         body = force_as_singleton(annotation_data.get("body"))
         iiif_camera = get_source_resource( body )
@@ -250,7 +266,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 
         return annotation_data
 
-    def get_annotation_page(self, scene_data: dict, collection: bpy.types.Collection) -> dict:
+    def get_annotation_page(self, scene_data: dict, scene_collection: bpy.types.Collection) -> dict:
         """Build annotation page for a scene"""
         # Get the first annotation page from scene data if it exists
         existing_pages = [item for item in scene_data.get('items', [])
@@ -276,7 +292,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
                 elif obj.type == 'LIGHT':
                     annotation_page["items"].append(self.get_light_annotation(obj))
                 elif obj.type == 'CAMERA':
-                    anno_data = self.get_camera_annotation(obj)
+                    anno_data = self.get_camera_annotation(obj, scene_collection)
                     if anno_data:
                         annotation_page["items"].append(anno_data)
 
@@ -284,7 +300,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             for child in col.children:
                 process_collection(child)
 
-        process_collection(collection)
+        process_collection(scene_collection)
         return annotation_page
 
     def execute(self, context: Context) -> Set[str]:
@@ -292,10 +308,11 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         manifest_data = self.get_manifest_data(context)
 
         # Process scenes
-        for collection in bpy.data.collections:
-            scene_data = self.get_scene_data(context, collection)
-            if scene_data:
-                manifest_data["items"].append(scene_data)
+        for collection in bpy.data.collections:            
+            if collection.get("iiif_type",None) == "scene":
+                scene_data = self.get_scene_data(context, collection)
+                if scene_data:
+                    manifest_data["items"].append(scene_data)
 
         # Write manifest
         with open(self.filepath, "w", encoding="utf-8") as f:
