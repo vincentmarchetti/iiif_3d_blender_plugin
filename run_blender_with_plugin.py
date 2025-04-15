@@ -1,7 +1,7 @@
 import logging
 logging.basicConfig()
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 import json
 import sys
@@ -61,7 +61,7 @@ if not ext_name:
 
 bpy.ops.preferences.addon_enable(module=ext_name)
 
-logger.debug("currently enabled plugins: %s" % ("\n".join(context.preferences.addons),))
+
 
 if ext_name not in context.preferences.addons:
     print("Failed to load the plugin")
