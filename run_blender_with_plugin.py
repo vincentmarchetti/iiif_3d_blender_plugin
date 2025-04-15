@@ -1,3 +1,8 @@
+import logging
+logging.basicConfig()
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 import json
 import sys
 import os
@@ -41,10 +46,13 @@ def get_extension_id():
 
 # Load the plugin
 needle = get_extension_id()
+logger.debug("needle is %s" % (needle,))
 ext_name = None
+logger.debug("addons.keys is %s" % ( "\n".join( context.preferences.addons.keys()),))
 for key in context.preferences.addons.keys():
     if needle in key:
         ext_name = key
+        logger.debug("ext_name is %s" % (ext_name,))
         break
 
 if not ext_name:
@@ -52,6 +60,8 @@ if not ext_name:
     sys.exit(1)
 
 bpy.ops.preferences.addon_enable(module=ext_name)
+
+logger.debug("currently enabled plugins: %s" % ("\n".join(context.preferences.addons),))
 
 if ext_name not in context.preferences.addons:
     print("Failed to load the plugin")
