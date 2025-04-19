@@ -3,6 +3,8 @@ from bpy.utils import register_class, unregister_class
 
 from .modules.exporter import ExportIIIF3DManifest
 from .modules.importer import ImportIIIF3DManifest
+from .modules.import_model import ImportIIIFModel
+
 from .modules.custom_props import (
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
@@ -18,6 +20,7 @@ from .modules.ui import (
 classes = (
     ImportIIIF3DManifest,
     ExportIIIF3DManifest,
+    ImportIIIFModel,
     IIIFManifestPanel,
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
@@ -34,6 +37,13 @@ def menu_func_export(self, context):
     self.layout.operator(
         ExportIIIF3DManifest.bl_idname, text="IIIF 3D Manifest (.json)"
     )
+    
+def menu_func_add_model(self, context):
+    self.layout.operator(
+        ImportIIIFModel.bl_idname, text="Import IIIF Model"
+    )
+        
+    
 
 def register():
     for cls in classes:
@@ -43,10 +53,12 @@ def register():
 
     TOPBAR_MT_file_import.append(menu_func_import)
     TOPBAR_MT_file_export.append(menu_func_export)
+    TOPBAR_MT_file_import.append(menu_func_add_model)
 
 def unregister():
     TOPBAR_MT_file_import.remove(menu_func_import)
     TOPBAR_MT_file_export.remove(menu_func_export)
+    TOPBAR_MT_file_import.remove(menu_func_add_model)
 
     unregister_ui_properties()
 
