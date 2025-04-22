@@ -7,8 +7,21 @@ from bpy.types import Context, Operator
 from bpy_extras.io_utils import ExportHelper
 
 from .metadata import IIIFMetadata
-from .utils.color import rgba_to_hex
+from .utils.color import hex_to_rgba
+from .utils.coordinates import Coordinates
+from .utils.json_patterns import (
+    force_as_object,
+    force_as_singleton,
+    force_as_list,
+    axes_named_values,
+    create_axes_named_values,
+    get_source_resource
+)
 
+import math
+
+import logging
+logger = logging.getLogger("export")
 
 class ExportIIIF3DManifest(Operator, ExportHelper):
     """Export IIIF 3D Manifest"""
@@ -29,9 +42,24 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
     )
 
     def get_scene_data(self, context: Context, collection: bpy.types.Collection) -> dict | None:
-        """Get scene data from metadata or create new"""
+        """Get scene data from metadata or create new
+           Collection should be the Blender Collection corresponding to the IIIF Scene
+        """
+        # sanity check
+        iiif_type = collection.get("iiif_type", None)
+        if  iiif_type == "scene":
+            scene_id = collection.get("iiif_id",None)
+            if not scene_id:
+                logger.warning("invalid id for exporting scene %r" % (scene_id,))
+            else:
+                logger.info("creating json data for IIIF scene %s" % scene_id )
+        else:
+            logger.warning("invalid collection passed to get_scene_data : %r" % (iiif_type,))
+            
         metadata = IIIFMetadata(collection)
         scene_data = metadata.get_scene()
+        
+        
 
         if scene_data:
             # Only update background color if it was originally present
@@ -167,8 +195,78 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             },
             "target": "https://example.org/iiif/scene1/page/p1/1"
         }
+        
+    def new_camera_annotation(self, blender_camera: bpy.types.Object ) -> dict:
+        camera_data = {
+            "id" : f"https://example.org/iiif/3d/camera_{blender_camera.name}",
+            "type" : "PerspectiveCamera"
+        }
+        
+        annotation_data = {
+            "id" : f"https://example.org/iiif/3d/anno_{blender_camera.name}",
+            "type" : "Annotation",
+            "motivation" : ["painting"],            
+        }
+        
+        annotation_data["target"] = {
+            "id" : "https://example.org/iiif/scene1/page/p1/1",
+            "type" : "Scene"
+        }
+        
+        annotation_data["body"] = camera_data
+        return annotation_data
+        
+    def get_camera_annotation(self, blender_camera: bpy.types.Object, scene_collection: bpy.types.Collection ) -> dict:
+        """Get annotation data from metadata or create new"""
+        metadata = IIIFMetadata(blender_camera)
+        annotation_data = metadata.get_annotation()
+        
+        if annotation_data is None:
+            annotation_data = self.new_camera_annotation(blender_camera)
+        
 
-    def get_annotation_page(self, scene_data: dict, collection: bpy.types.Collection) -> dict:
+        try:
+            saved_mode = blender_camera.rotation_mode
+            blender_camera.rotation_mode = "QUATERNION"
+            quat = blender_camera.rotation_quaternion
+            blender_camera.rotation_mode = saved_mode
+            vec  = blender_camera.location
+            
+            iiif_rotation = Coordinates.blender_rotation_to_camera_transform_angles(quat)
+            iiif_position = Coordinates.blender_vector_to_iiif_position(vec)
+            logger.info("iiif: position: %r  rotation %r" % (iiif_position, iiif_rotation ))
+        except Exception as exc:
+            logger.exception("failed camera ", exc)
+
+        target = force_as_object(force_as_singleton(annotation_data.get("target")))
+        target_source = get_source_resource( target )
+        target_source["id"] = scene_collection.get("iiif_id", "https://example.com/not_available")
+        
+        body = force_as_singleton(annotation_data.get("body"))
+        iiif_camera = get_source_resource( body )
+        
+        # this will remove a camera "lookAt" property if it exists
+        old_lookAt = iiif_camera.pop("lookAt", None)
+        
+        blender_y_angle = blender_camera.data.angle_y
+        logger.info("blender vertical FoV %.3e radians" % blender_y_angle)
+        iiif_camera["fieldOfView"] =  math.degrees(blender_y_angle)
+        
+        annotation_data["body"] = {
+            "type" : "SpecificResource",
+            "source" : iiif_camera,
+            "transform" : [create_axes_named_values("RotateTransform", iiif_rotation)]
+        }
+             
+        annotation_data["target"]= {
+            "type" : "SpecificResource",
+            "source" : target_source,
+            "selector" : create_axes_named_values("PointSelector", iiif_position)
+        }           
+
+        return annotation_data
+
+    def get_annotation_page(self, scene_data: dict, scene_collection: bpy.types.Collection) -> dict:
         """Build annotation page for a scene"""
         # Get the first annotation page from scene data if it exists
         existing_pages = [item for item in scene_data.get('items', [])
@@ -194,8 +292,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
                 elif obj.type == 'LIGHT':
                     annotation_page["items"].append(self.get_light_annotation(obj))
                 elif obj.type == 'CAMERA':
-                    metadata = IIIFMetadata(obj)
-                    anno_data = metadata.get_annotation()
+                    anno_data = self.get_camera_annotation(obj, scene_collection)
                     if anno_data:
                         annotation_page["items"].append(anno_data)
 
@@ -203,7 +300,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             for child in col.children:
                 process_collection(child)
 
-        process_collection(collection)
+        process_collection(scene_collection)
         return annotation_page
 
     def execute(self, context: Context) -> Set[str]:
@@ -211,10 +308,11 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         manifest_data = self.get_manifest_data(context)
 
         # Process scenes
-        for collection in bpy.data.collections:
-            scene_data = self.get_scene_data(context, collection)
-            if scene_data:
-                manifest_data["items"].append(scene_data)
+        for collection in bpy.data.collections:            
+            if collection.get("iiif_type",None) == "scene":
+                scene_data = self.get_scene_data(context, collection)
+                if scene_data:
+                    manifest_data["items"].append(scene_data)
 
         # Write manifest
         with open(self.filepath, "w", encoding="utf-8") as f:
