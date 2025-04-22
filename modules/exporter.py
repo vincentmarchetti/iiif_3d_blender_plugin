@@ -215,7 +215,33 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         
         annotation_data["body"] = camera_data
         return annotation_data
+
         
+    def new_model_annotation(self, blender_model: bpy.types.Object ) -> dict: 
+        
+        model_id = blender_model.get("iiif_id", "https://example.com/model_id_unknown")
+        model_format = blender_model.get("iiif_format", "application/binary")
+        
+        model_data = {
+            "id" : model_id,
+            "type" : "Model",
+            "format" : model_format
+        }
+        
+        annotation_data = {
+            "id" : f"https://example.org/iiif/3d/anno_{blender_model.name}",
+            "type" : "Annotation",
+            "motivation" : ["painting"],            
+        }
+        
+        annotation_data["target"] = {
+            "id" : "https://example.org/iiif/scene1/page/p1/1",
+            "type" : "Scene"
+        }
+        
+        annotation_data["body"] = camera_data
+        return annotation_data
+    
     def get_camera_annotation(self, blender_camera: bpy.types.Object, scene_collection: bpy.types.Collection ) -> dict:
         """Get annotation data from metadata or create new"""
         metadata = IIIFMetadata(blender_camera)
@@ -265,6 +291,65 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         }           
 
         return annotation_data
+        
+    def get_model_annotation(self, blender_model: bpy.types.Object, scene_collection: bpy.types.Collection ) -> dict:
+        """Get annotation data from metadata or create new"""
+        metadata = IIIFMetadata(blender_model)
+        annotation_data = metadata.get_annotation()
+        
+        if annotation_data is None:
+            annotation_data = self.new_model_annotation(blender_model)
+        
+
+        try:
+            saved_mode = blender_model.rotation_mode
+            blender_model.rotation_mode = "QUATERNION"
+            quat = blender_model.rotation_quaternion
+            blender_model.rotation_mode = saved_mode
+            vec  = blender_model.location
+            scale_vector = blender_model.scale
+            
+            iiif_rotation = Coordinates.blender_rotation_to_model_transform_angles (quat)
+            iiif_position = Coordinates.blender_vector_to_iiif_position(vec)
+            logger.info("iiif: position: %r  rotation %r" % (iiif_position, iiif_rotation ))
+        except Exception as exc:
+            logger.exception("failed model ", exc)
+
+        target = force_as_object(force_as_singleton(annotation_data.get("target")))
+        target_source = get_source_resource( target )
+        target_source["id"] = scene_collection.get("iiif_id", "https://example.com/not_available")
+        
+        if  iiif_position  == (0.0, 0.0,0.0):
+            new_target = target_source
+        else:
+            new_target= {
+                            "type" : "SpecificResource",
+                            "source" : target_source,
+                            "selector" : create_axes_named_values("PointSelector", iiif_position)
+                        }
+        annotation_data["target"]   = new_target 
+                      
+        body = force_as_singleton(annotation_data.get("body"))
+        iiif_model = get_source_resource( body )
+
+        iiif_transforms = list()
+        if scale_vector.to_tuple() != (1.0 , 1.0, 1.0):
+            iiif_transforms.append( create_axes_named_values("ScaleTransform", scale_vector.to_tuple()))
+        if  iiif_rotation != (0.0, 0.0, 0.0):
+            iiif_transforms.append( create_axes_named_values("RotateTransform", iiif_rotation ))
+        
+        if len(iiif_transforms) == 0:
+            new_body =  iiif_model
+        else:
+            new_body = {
+                "type" : "SpecificResource",
+                "source" : iiif_model,
+                "transform" : iiif_transforms
+            }
+        annotation_data["body"] = new_body
+             
+        return annotation_data
+
 
     def get_annotation_page(self, scene_data: dict, scene_collection: bpy.types.Collection) -> dict:
         """Build annotation page for a scene"""
@@ -285,8 +370,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         def process_collection(col):
             for obj in col.objects:
                 if obj.type == 'MESH':
-                    metadata = IIIFMetadata(obj)
-                    anno_data = metadata.get_annotation()
+                    anno_data = self.get_model_annotation( obj, scene_collection )
                     if anno_data:
                         annotation_page["items"].append(anno_data)
                 elif obj.type == 'LIGHT':
