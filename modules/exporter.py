@@ -47,7 +47,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         """
         # sanity check
         iiif_type = collection.get("iiif_type", None)
-        if  iiif_type == "scene":
+        if  iiif_type.lower() == "Scene".lower():
             scene_id = collection.get("iiif_id",None)
             if not scene_id:
                 logger.warning("invalid id for exporting scene %r" % (scene_id,))
@@ -79,7 +79,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             # Update existing annotation page or add new one
             found = False
             for i, item in enumerate(scene_data['items']):
-                if item.get('type') == 'AnnotationPage':
+                if item.get('type').lower() == 'AnnotationPage'.lower():
                     scene_data['items'][i] = annotation_page
                     found = True
                     break
@@ -309,7 +309,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 
         # Process scenes
         for collection in bpy.data.collections:            
-            if collection.get("iiif_type",None) == "scene":
+            if collection.get("iiif_type",None).lower() == "Scene".lower():
                 scene_data = self.get_scene_data(context, collection)
                 if scene_data:
                     manifest_data["items"].append(scene_data)
