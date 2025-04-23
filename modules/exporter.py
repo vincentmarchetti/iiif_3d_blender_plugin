@@ -264,9 +264,10 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         except Exception as exc:
             logger.exception("failed camera ", exc)
 
-        target = force_as_object(force_as_singleton(annotation_data.get("target")))
-        target_source = get_source_resource( target )
-        target_source["id"] = scene_collection.get("iiif_id", "https://example.com/not_available")
+        scene_obj = {
+            "id" :   scene_collection.get("iiif_id"),
+            "type" : scene_collection.get("iiif_type"),
+        }
         
         body = force_as_singleton(annotation_data.get("body"))
         iiif_camera = get_source_resource( body )
@@ -286,7 +287,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
              
         annotation_data["target"]= {
             "type" : "SpecificResource",
-            "source" : target_source,
+            "source" : scene_obj,
             "selector" : create_axes_named_values("PointSelector", iiif_position)
         }           
 
@@ -315,16 +316,17 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         except Exception as exc:
             logger.exception("failed model ", exc)
 
-        target = force_as_object(force_as_singleton(annotation_data.get("target")))
-        target_source = get_source_resource( target )
-        target_source["id"] = scene_collection.get("iiif_id", "https://example.com/not_available")
+        scene_obj = {
+            "id" :   scene_collection.get("iiif_id"),
+            "type" : scene_collection.get("iiif_type"),
+        }
         
         if  iiif_position  == (0.0, 0.0,0.0):
-            new_target = target_source
+            new_target = scene_obj
         else:
             new_target= {
                             "type" : "SpecificResource",
-                            "source" : target_source,
+                            "source" : scene_obj,
                             "selector" : create_axes_named_values("PointSelector", iiif_position)
                         }
         annotation_data["target"]   = new_target 
