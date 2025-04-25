@@ -395,7 +395,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 
         # Process scenes
         for collection in bpy.data.collections:            
-            if collection.get("iiif_type",None).lower() == "Scene".lower():
+            if collection.get("iiif_type","").lower() == "Scene".lower():
                 scene_data = self.get_scene_data(context, collection)
                 if scene_data:
                     manifest_data["items"].append(scene_data)
