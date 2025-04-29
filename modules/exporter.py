@@ -239,7 +239,7 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             "type" : "Scene"
         }
         
-        annotation_data["body"] = camera_data
+        annotation_data["body"] = model_data
         return annotation_data
     
     def get_camera_annotation(self, blender_camera: bpy.types.Object, scene_collection: bpy.types.Collection ) -> dict:
