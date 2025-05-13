@@ -20,12 +20,8 @@ run_test() {
     fi
 }
 
-# change made 15 Apr 2025 by VJM, only run the test on 
-# the single 0101_model_origin.json file rather than all files
-# found by glob via 
-# for manifest in tests/iiif_manifests/*.json; do
-for manifest in tests/iiif_manifests/0101_model_origin.json; do
-    echo "ℹ️  Testing manifest: $manifest"
+for manifest in tests/iiif_manifests/*.json; do
+    echo "ℹ️  Testing import of manifest: $manifest"
     if ! run_test "blender --background --python run_blender_with_plugin.py -- '$manifest'"; then
         ((FAILED_TESTS++))
     fi
