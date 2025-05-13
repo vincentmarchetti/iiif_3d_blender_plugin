@@ -44,8 +44,17 @@ def initialize_manifest( manifest_collection ):
     iiif_json custom property. The editing code for "label" and "rights" will decide 
     what to do if those iiif properties are not defined in the imported manifest, or
     are defined in a non-standard way.
+    
+    In following initialization of data, entering invalid None values for several
+    properties. It's been seen that in Python 3.11 the the output printed json
+    text will be in this order, which is more judged more readable.
     """
     manifest_init_data = {
+        "@context": "http://iiif.io/api/presentation/4/context.json",
+        "id" : None,
+        "type" : None,
+        "rights" : None,
+        "label" : None,
         "items" : []
     }
     
@@ -89,3 +98,5 @@ def generate_uri(resource_type="manifest"):
     return "https://example.com/iiif_blender_plugin/%s/%i" % (resource_type,indexer)
 
 build()
+
+bpy.ops.export_scene.iiif_manifest(filepath="export_new_manifest.json")
