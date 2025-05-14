@@ -22,7 +22,7 @@ def _find_resources_by_type(what_iiif_type:str) -> list:
     if what_iiif_type in collection_types:
         return [
             coll for coll in bpy.data.collections \
-            if coll.get("iiif_type", None) == what_iiif_type
+            if coll.get("iiif_type", None) == what_iiif_type \
         ]
     else:
         raise ValueError("_find_resources_by_type unimplemented for type %s" 
@@ -50,7 +50,7 @@ def _find_enclosing_resource(iiif_resource, enclosing_type):
     if search_id is None:
         return None
         
-    for coll in _find_resources_by_type(parent_type_dict[iiif_resource.get("iiif_type",None):
+    for coll in _find_resources_by_type(parent_type_dict(iiif_resource.get("iiif_type",None))):
         for ch in coll.children:
             if ch.get("iiif_id",None) == search_id:
                 if coll.get("iiif_type", None) == enclosing_type:

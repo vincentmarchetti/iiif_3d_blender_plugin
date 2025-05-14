@@ -18,10 +18,12 @@ from .utils.json_patterns import (
     get_source_resource
 )
 
+from . import navigation as nav
+
 import math
 
 import logging
-logger = logging.getLogger("export")
+logger = logging.getLogger("iiif.export")
 
 class ExportIIIF3DManifest(Operator, ExportHelper):
     """Export IIIF 3D Manifest"""
@@ -41,88 +43,108 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         subtype='FILE_PATH',
     )
 
-    def get_scene_data(self, context: Context, collection: bpy.types.Collection) -> dict | None:
-        """Get scene data from metadata or create new
-           Collection should be the Blender Collection corresponding to the IIIF Scene
+
+    def get_base_data(self, iiif_object):
         """
-        # sanity check
-        iiif_type = collection.get("iiif_type", None)
-        if  iiif_type.lower() == "Scene".lower():
-            scene_id = collection.get("iiif_id",None)
-            if not scene_id:
-                logger.warning("invalid id for exporting scene %r" % (scene_id,))
-            else:
-                logger.info("creating json data for IIIF scene %s" % scene_id )
-        else:
-            logger.warning("invalid collection passed to get_scene_data : %r" % (iiif_type,))
-            
-        metadata = IIIFMetadata(collection)
-        scene_data = metadata.get_scene()
+        iiif_object is withe a Blender collection or Blender object
+        for which custom properties iiif_id, iiif_type, and iiif_json
+        have been defined. Returns a python dict which contains information
+        for the json output in Manifest.
         
+        Design intent is that client will start with this base_data dict
+        and then add and or modify properties which are determined by
+        the Blender data structure
+        """
+        import json
+        base_data = json.loads( iiif_object.get("iiif_json", {}))
+        base_data["id"] = iiif_object.get("iiif_id")
+        base_data["type"] = iiif_object.get("iiif_type")
+        return base_data
+
+    def get_manifest_data(self, manifest_collection: bpy.types.Collection) -> dict:
+        manifest_data = self.get_base_data(manifest_collection)
         
+        for scene_collection in nav.getScenes(manifest_collection):
+            manifest_data["items"].append(self.get_scene_data(scene_collection))
+        return manifest_data
+        
+    def get_scene_data(self, scene_collection: bpy.types.Collection) -> dict:
+        scene_data = self.get_base_data(scene_collection)
+        
+        for page_collection in nav.getAnnotationPages(scene_collection):
+            scene_data["items"].append(self.get_annotation_page_data(page_collection))
+        return scene_data
 
-        if scene_data:
-            # Only update background color if it was originally present
-            if "backgroundColor" in scene_data and context.scene.world and context.scene.world.use_nodes:
-                background_node = context.scene.world.node_tree.nodes.get("Background")
-                if background_node:
-                    color = background_node.inputs[0].default_value
-                    scene_data["backgroundColor"] = rgba_to_hex(color)
+##        iiif_type = collection.get("iiif_type", None)
+##        if  iiif_type.lower() == "Scene".lower():
+##            scene_id = collection.get("iiif_id",None)
+##            if not scene_id:
+##                logger.warning("invalid id for exporting scene %r" % (scene_id,))
+##            else:
+##                logger.info("creating json data for IIIF scene %s" % scene_id )
+##        else:
+##            logger.warning("invalid collection passed to get_scene_data : %r" % (iiif_type,))
+##            
+##        metadata = IIIFMetadata(collection)
+##        scene_data = metadata.get_scene()
+##        
+##        
+##
+##        if scene_data:
+##            # Only update background color if it was originally present
+##            if "backgroundColor" in scene_data and context.scene.world and context.scene.world.use_nodes:
+##                background_node = context.scene.world.node_tree.nodes.get("Background")
+##                if background_node:
+##                    color = background_node.inputs[0].default_value
+##                    scene_data["backgroundColor"] = rgba_to_hex(color)
+##
+##            # Replace existing annotation page or add new one
+##            annotation_page = self.get_annotation_page(scene_data, collection)
+##
+##            # Replace or add items array
+##            if 'items' not in scene_data:
+##                scene_data['items'] = []
+##
+##            # Update existing annotation page or add new one
+##            found = False
+##            for i, item in enumerate(scene_data['items']):
+##                if item.get('type').lower() == 'AnnotationPage'.lower():
+##                    scene_data['items'][i] = annotation_page
+##                    found = True
+##                    break
+##
+##            if not found:
+##                scene_data['items'].append(annotation_page)
+##
+##            return scene_data
+##        return None
 
-            # Replace existing annotation page or add new one
-            annotation_page = self.get_annotation_page(scene_data, collection)
-
-            # Replace or add items array
-            if 'items' not in scene_data:
-                scene_data['items'] = []
-
-            # Update existing annotation page or add new one
-            found = False
-            for i, item in enumerate(scene_data['items']):
-                if item.get('type').lower() == 'AnnotationPage'.lower():
-                    scene_data['items'][i] = annotation_page
-                    found = True
-                    break
-
-            if not found:
-                scene_data['items'].append(annotation_page)
-
-            return scene_data
-        return None
-
-    def get_manifest_data(self, context: Context) -> dict:
-        """Get manifest data from metadata or create new"""
-        scene = context.scene
-
-        # Fallback to new manifest
-        fallback_manifest = {
-            "@context": "http://iiif.io/api/presentation/4/context.json",
-            "id": getattr(scene, "iiif_manifest_id"),
-            "type": "Manifest",
-            "label": {"en": [getattr(scene, "iiif_manifest_label")]},
-            "summary": {"en": [getattr(scene, "iiif_manifest_summary")]},
-            "items": []
-        }
-
-        for collection in bpy.data.collections:
-            metadata = IIIFMetadata(collection)
-            manifest_data = metadata.get_manifest()
-            if manifest_data:
-                # Merge existing manifest on top of fallback manifest
-                merged_manifest = {**fallback_manifest, **manifest_data}
-                merged_manifest["items"] = []  # Clear items to rebuild
-                merged_manifest["id"] = getattr(scene, "iiif_manifest_id")
-                merged_manifest["label"] = {
-                    **merged_manifest["label"],
-                    "en": [getattr(scene, "iiif_manifest_label")]
-                }
-                merged_manifest["summary"] = {
-                    **merged_manifest["summary"],
-                    "en": [getattr(scene, "iiif_manifest_summary")]
-                }
-                return merged_manifest
-
-        return fallback_manifest
+    def get_annotation_page_data(self, page_collection: bpy.types.Collection) -> dict:
+        page_data = self.get_base_data(page_collection)
+        # To Do: retrieve Annotation instances in page_collection
+        return page_data
+##        
+##
+##        # Look for objects in the collection and its children
+##        def process_collection(col):
+##            for obj in col.objects:
+##                if obj.type == 'MESH':
+##                    anno_data = self.get_model_annotation( obj, scene_collection )
+##                    if anno_data:
+##                        annotation_page["items"].append(anno_data)
+##                elif obj.type == 'LIGHT':
+##                    annotation_page["items"].append(self.get_light_annotation(obj))
+##                elif obj.type == 'CAMERA':
+##                    anno_data = self.get_camera_annotation(obj, scene_collection)
+##                    if anno_data:
+##                        annotation_page["items"].append(anno_data)
+##
+##            # Process child collections recursively
+##            for child in col.children:
+##                process_collection(child)
+##
+##        process_collection(scene_collection)
+##        return annotation_page
 
     def get_light_annotation(self, obj: bpy.types.Object) -> dict:
         """Get annotation data for a light object"""
@@ -353,55 +375,21 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
         return annotation_data
 
 
-    def get_annotation_page(self, scene_data: dict, scene_collection: bpy.types.Collection) -> dict:
-        """Build annotation page for a scene"""
-        # Get the first annotation page from scene data if it exists
-        existing_pages = [item for item in scene_data.get('items', [])
-                         if item.get('type') == 'AnnotationPage']
-
-        page_id = (existing_pages[0].get('id') if existing_pages
-                   else f"{scene_data['id']}/annotations")
-
-        annotation_page = {
-            "id": page_id,
-            "type": "AnnotationPage",
-            "items": []
-        }
-
-        # Look for objects in the collection and its children
-        def process_collection(col):
-            for obj in col.objects:
-                if obj.type == 'MESH':
-                    anno_data = self.get_model_annotation( obj, scene_collection )
-                    if anno_data:
-                        annotation_page["items"].append(anno_data)
-                elif obj.type == 'LIGHT':
-                    annotation_page["items"].append(self.get_light_annotation(obj))
-                elif obj.type == 'CAMERA':
-                    anno_data = self.get_camera_annotation(obj, scene_collection)
-                    if anno_data:
-                        annotation_page["items"].append(anno_data)
-
-            # Process child collections recursively
-            for child in col.children:
-                process_collection(child)
-
-        process_collection(scene_collection)
-        return annotation_page
 
     def execute(self, context: Context) -> Set[str]:
-        """Export scene as IIIF manifest"""
-        manifest_data = self.get_manifest_data(context)
-
-        # Process scenes
-        for collection in bpy.data.collections:            
-            if collection.get("iiif_type","").lower() == "Scene".lower():
-                scene_data = self.get_scene_data(context, collection)
-                if scene_data:
-                    manifest_data["items"].append(scene_data)
-
-        # Write manifest
-        with open(self.filepath, "w", encoding="utf-8") as f:
-            json.dump(manifest_data, f, indent=2)
+        """Export Blender scene as IIIF manifest"""
+        manifests = nav.getManifests()
+        
+        if manifests:   # that is, not an empty list
+            if len(manifests) > 1:
+                logger.warning("Multiple manifests not supported")
+            manifest_collection=manifests[0]
+            manifest_data = self.get_manifest_data(manifest_collection)
+        
+            # Write manifest
+            with open(self.filepath, "w", encoding="utf-8") as f:
+                json.dump(manifest_data, f, indent=2)
+        else:
+            logger.warning("No manifest collections identified")
 
         return {"FINISHED"}

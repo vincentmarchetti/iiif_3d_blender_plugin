@@ -67,8 +67,9 @@ def initialize_manifest( manifest_collection ):
     https://iiif.io/api/presentation/3.0/#rights
     for allowed value of the 'rights' property
     """
-    manifest_init_data["rights"] = ["https://creativecommons.org/licenses/by/4.0/"]
-    manifest_init_data["label"] = {"none" : ["default-ugly-label"]}
+
+    manifest_init_data["rights"] = "https://creativecommons.org/licenses/by/4.0/"
+    manifest_init_data["label"] = {"none" : ["default-manifest-label"]}
     
     manifest_collection["iiif_json"] = json.dumps(manifest_init_data)
  
@@ -77,7 +78,13 @@ def initialize_scene( scene_collection ):
     scene_collection["iiif_id"]  = generate_uri(resource_type="scene")
     scene_collection["iiif_type"]  = "Scene"
     
-    scene_init_data = { "items" : [] }
+
+    scene_init_data = {
+        "id" : None,
+        "type" : None,
+        "label" : {"none":["default-scene-label"]},
+        "items" : []
+    }
     scene_collection["iiif_json"] = json.dumps(scene_init_data)
 
 def initialize_anotation_page( page_collection ):  
@@ -85,7 +92,12 @@ def initialize_anotation_page( page_collection ):
     page_collection[ "iiif_id"] = generate_uri(resource_type="annotationpage")
     page_collection["iiif_type"]  = "AnnotationPage"  
       
-    page_init_data = { "items" : [] }
+    page_init_data = {
+        "id" : None,
+        "type" : None,
+        "label" : {"none":["default-annotation-page-label"]},
+        "items" : []
+    }
     page_collection["iiif_json"] = json.dumps(page_init_data)
     
 def generate_uri(resource_type="manifest"):
