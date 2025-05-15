@@ -4,6 +4,7 @@ from bpy.utils import register_class, unregister_class
 from .modules.exporter import ExportIIIF3DManifest
 from .modules.importer import ImportIIIF3DManifest
 from .modules.import_model import ImportIIIFModel
+from .modules.new_manifest import NewManifest
 
 from .modules.custom_props import (
     AddIIIF3DObjProperties,
@@ -25,7 +26,8 @@ classes = (
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
     IIIF3DObjMetadataPanel,
-    IIIF3DCollMetadataPanel
+    IIIF3DCollMetadataPanel,
+    NewManifest
 )
 
 def menu_func_import(self, context):
