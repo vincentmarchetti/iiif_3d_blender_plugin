@@ -1,4 +1,7 @@
-from bpy.types import TOPBAR_MT_file_export, TOPBAR_MT_file_import
+import logging
+logger=logging.getLogger("iiif.init")
+
+from bpy.types import TOPBAR_MT_file_export, TOPBAR_MT_file_import,OUTLINER_MT_collection_new, OUTLINER_MT_collection 
 from bpy.utils import register_class, unregister_class
 
 from .modules.exporter import ExportIIIF3DManifest
@@ -44,7 +47,12 @@ def menu_func_add_model(self, context):
     self.layout.operator(
         ImportIIIFModel.bl_idname, text="Import IIIF Model"
     )
-        
+    
+def menu_func_new_manifest(self, context):
+    self.layout.operator(
+        NewManifest.bl_idname, text="New IIIF Manifest"
+    )
+    
     
 
 def register():
@@ -56,11 +64,13 @@ def register():
     TOPBAR_MT_file_import.append(menu_func_import)
     TOPBAR_MT_file_export.append(menu_func_export)
     TOPBAR_MT_file_import.append(menu_func_add_model)
+    OUTLINER_MT_collection_new.append(menu_func_new_manifest)
 
 def unregister():
     TOPBAR_MT_file_import.remove(menu_func_import)
     TOPBAR_MT_file_export.remove(menu_func_export)
     TOPBAR_MT_file_import.remove(menu_func_add_model)
+    OUTLINER_MT_collection_new.remove(menu_func_new_manifest)
 
     unregister_ui_properties()
 
