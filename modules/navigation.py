@@ -88,3 +88,12 @@ def getAnnotationPages(scene_collection):
 def getAnnotations(page_collection):
     return _find_child_resources_by_type( page_collection, "Annotation" )
     
+def getBodyObject(anno_collection):
+    
+    bodyObjList = [obj for obj in anno_collection.objects if obj.get("iiif_type", None)]
+    if len(bodyObjList) == 0:
+        return None
+    if len(bodyObjList) > 1:
+        logger.warning("multiple body objects in single Annotation")
+    return bodyObjList[0]
+    

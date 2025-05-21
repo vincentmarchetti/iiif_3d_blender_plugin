@@ -159,6 +159,12 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
                 "type" : enclosing_scene.get("iiif_type","")
             
             }
+        bodyObj = nav.getBodyObject(anno_collection)
+        if bodyObj:
+            anno_data["body"]={
+                "id":   bodyObj.get("iiif_id","") ,   
+                "type": bodyObj.get("iiif_type","")            
+            }
         return anno_data
 
 
