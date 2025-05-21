@@ -1,13 +1,13 @@
 import logging
 logger=logging.getLogger("iiif.init")
 
-from bpy.types import TOPBAR_MT_file_export, TOPBAR_MT_file_import,OUTLINER_MT_collection_new, OUTLINER_MT_collection 
+from bpy.types import TOPBAR_MT_file_export, TOPBAR_MT_file_import,OUTLINER_MT_collection_new, OUTLINER_MT_collection , Menu
 from bpy.utils import register_class, unregister_class
 
 from .modules.exporter import ExportIIIF3DManifest
 from .modules.importer import ImportIIIF3DManifest
-from .modules.import_model import ImportIIIFModel
-from .modules.new_manifest import NewManifest
+from .modules.editing.import_model import ImportModel
+from .modules.editing.new_manifest import NewManifest
 
 from .modules.custom_props import (
     AddIIIF3DObjProperties,
@@ -21,19 +21,19 @@ from .modules.ui import (
     unregister_ui_properties,
 )
 
-class ManifestSubMenu( bpy.types.Menu):
+class OUTLINER_MT_edit_manifest(Menu):
     """
     intent is that this menu will be added to the popup
     menu associated with any Blender bpy.type.Collection
     which has an iiif_type property value of AnnotationPage
     """
     bl_label="Manifest Editing"
-    bl_idname="iiif.manifest_submenu"
+    bl_idname="OUTLINER_MT_edit_manifest"
     
     def draw(self,context):
         layout = self.layout
         target_collection = context.collection
-        layout.operator("import_scene.import_model", text="Add Model")
+        layout.operator(ImportModel.bl_idname, text="Add Model")
         
         """
         operators for adding a camera and light will be added
@@ -42,19 +42,19 @@ class ManifestSubMenu( bpy.types.Menu):
 def menu_func_manifest_submenu(self,context):
     target_collection = context.collection
     if target_collection.get("iiif_type","") == "AnnotationPage":
-        self.layout.menu(ManifestSubMenu.bl_idname, text="Edit Manifest") 
+        self.layout.menu(OUTLINER_MT_edit_manifest.bl_idname, text="Edit Manifest") 
 
 classes = (
     ImportIIIF3DManifest,
     ExportIIIF3DManifest,
-    ImportIIIFModel,
+    ImportModel,
     IIIFManifestPanel,
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
     IIIF3DObjMetadataPanel,
     IIIF3DCollMetadataPanel,
     NewManifest,
-    ManifestSubMenu
+    OUTLINER_MT_edit_manifest
 )
 
 def menu_func_import(self, context):

@@ -84,6 +84,17 @@ def initialize_anotation_page( page_collection ):
     }
     page_collection["iiif_json"] = json.dumps(page_init_data)
     
+def initialize_annotation( annotation_collection ):  
+
+    annotation_collection[ "iiif_id"] = generate_uri(resource_type="Annotation")
+    annotation_collection["iiif_type"]  = "Annotation"  
+      
+    anno_init_data = {
+        "id" : None,
+        "type" : None
+    }
+    annotation_collection["iiif_json"] = json.dumps(anno_init_data)
+    
 def generate_uri(resource_type="Manifest"):
     """
     this is the stub for a future implementation that will 
