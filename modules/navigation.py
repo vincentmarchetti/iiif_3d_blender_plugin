@@ -1,6 +1,6 @@
 import logging
 logger = logging.getLogger("iiif.navigation")
-logger.setLevel(logging.WARN)
+logger.setLevel(logging.DEBUG)
 
 import bpy
 
@@ -47,10 +47,12 @@ def _find_enclosing_resource(iiif_resource, enclosing_type):
         "Scene" : "Manifest"
     }
     search_id = iiif_resource.get("iiif_id", None)
+    logger.info("searching for %s that contains iiif_id: %r" % (enclosing_type, search_id))
     if search_id is None:
         return None
         
-    for coll in _find_resources_by_type(parent_type_dict(iiif_resource.get("iiif_type",None))):
+    for coll in _find_resources_by_type(parent_type_dict[iiif_resource.get("iiif_type",None)]):
+        
         for ch in coll.children:
             if ch.get("iiif_id",None) == search_id:
                 if coll.get("iiif_type", None) == enclosing_type:
@@ -84,5 +86,5 @@ def getAnnotationPages(scene_collection):
     return _find_child_resources_by_type( scene_collection, "AnnotationPage" )
     
 def getAnnotations(page_collection):
-    return _find_child_resources_by_type( scene_collection, "AnnotationPage" )
+    return _find_child_resources_by_type( page_collection, "Annotation" )
     

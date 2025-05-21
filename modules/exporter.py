@@ -121,7 +121,11 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 
     def get_annotation_page_data(self, page_collection: bpy.types.Collection) -> dict:
         page_data = self.get_base_data(page_collection)
-        # To Do: retrieve Annotation instances in page_collection
+        
+        for anno_collection in nav.getAnnotations(page_collection):
+            page_data["items"].append(self.get_annotation_data(anno_collection))
+
+        
         return page_data
 ##        
 ##
@@ -145,6 +149,19 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
 ##
 ##        process_collection(scene_collection)
 ##        return annotation_page
+
+    def get_annotation_data(self, anno_collection ):
+        anno_data = self.get_base_data(anno_collection)
+        enclosing_scene = nav.getTargetScene(anno_collection)
+        if enclosing_scene:
+            anno_data["target"]={
+                "id" : enclosing_scene.get("iiif_id",""),
+                "type" : enclosing_scene.get("iiif_type","")
+            
+            }
+        return anno_data
+
+
 
     def get_light_annotation(self, obj: bpy.types.Object) -> dict:
         """Get annotation data for a light object"""
