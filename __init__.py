@@ -21,6 +21,29 @@ from .modules.ui import (
     unregister_ui_properties,
 )
 
+class ManifestSubMenu( bpy.types.Menu):
+    """
+    intent is that this menu will be added to the popup
+    menu associated with any Blender bpy.type.Collection
+    which has an iiif_type property value of AnnotationPage
+    """
+    bl_label="Manifest Editing"
+    bl_idname="iiif.manifest_submenu"
+    
+    def draw(self,context):
+        layout = self.layout
+        target_collection = context.collection
+        layout.operator("import_scene.import_model", text="Add Model")
+        
+        """
+        operators for adding a camera and light will be added
+        """
+
+def menu_func_manifest_submenu(self,context):
+    target_collection = context.collection
+    if target_collection.get("iiif_type","") == "AnnotationPage":
+        self.layout.menu(ManifestSubMenu.bl_idname, text="Edit Manifest") 
+
 classes = (
     ImportIIIF3DManifest,
     ExportIIIF3DManifest,
@@ -30,7 +53,8 @@ classes = (
     AddIIIF3DCollProperties,
     IIIF3DObjMetadataPanel,
     IIIF3DCollMetadataPanel,
-    NewManifest
+    NewManifest,
+    ManifestSubMenu
 )
 
 def menu_func_import(self, context):
@@ -43,18 +67,12 @@ def menu_func_export(self, context):
         ExportIIIF3DManifest.bl_idname, text="IIIF 3D Manifest (.json)"
     )
     
-def menu_func_add_model(self, context):
-    self.layout.operator(
-        ImportIIIFModel.bl_idname, text="Import IIIF Model"
-    )
     
 def menu_func_new_manifest(self, context):
     self.layout.operator(
         NewManifest.bl_idname, text="New IIIF Manifest"
     )
     
-    
-
 def register():
     for cls in classes:
         register_class(cls)
@@ -63,14 +81,18 @@ def register():
 
     TOPBAR_MT_file_import.append(menu_func_import)
     TOPBAR_MT_file_export.append(menu_func_export)
-    TOPBAR_MT_file_import.append(menu_func_add_model)
+    
     OUTLINER_MT_collection_new.append(menu_func_new_manifest)
+    
+    OUTLINER_MT_collection.append(menu_func_manifest_submenu)
 
 def unregister():
     TOPBAR_MT_file_import.remove(menu_func_import)
     TOPBAR_MT_file_export.remove(menu_func_export)
-    TOPBAR_MT_file_import.remove(menu_func_add_model)
+    
     OUTLINER_MT_collection_new.remove(menu_func_new_manifest)
+    
+    OUTLINER_MT_collection.append(menu_func_manifest_submenu)
 
     unregister_ui_properties()
 
