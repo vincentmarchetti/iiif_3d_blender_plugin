@@ -34,6 +34,7 @@ class ImportModel(Operator, ImportHelper):
         description="Path to the input file",
         maxlen=0,
         subtype="FILE_PATH",
+        options={'HIDDEN'}
     )
 
     model_url: StringProperty(  # type: ignore
@@ -126,7 +127,21 @@ class ImportLocalModel(ImportModel, ImportHelper):
     # developer note VM 2025-04-19 : just put this here as a reminder
     # of how UI works with the operator, Not needed for production
     def invoke(self, context, event):
-        logger.info("ImportLocalModel.execute entered")
+        logger.info("ImportLocalModel.invoke entered")
         rv = ImportHelper.invoke(self, context,event)
         return rv
 
+class ImportNetworkModel(ImportModel, ImportHelper):
+    bl_idname = "iiif.import_network_model"
+    bl_label = "Import remote resource as model"    
+    
+    
+    def invoke(self, context, event):
+        logger.info("ImportRemoteModel.invoke entered")
+        rv = context.window_manager.invoke_props_dialog(self, width=640)
+        logger.info("return from invoke_props_dialog %r : %r" % (rv, self.model_url) )
+        return rv
+
+    def execute(self, context: Context) -> Set[str]:
+        logger.info("stub execution only with %r : %r" % (self.model_url, self.filepath))
+        return {"FINISHED"}

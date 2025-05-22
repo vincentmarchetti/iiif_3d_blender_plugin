@@ -6,7 +6,7 @@ from bpy.utils import register_class, unregister_class
 
 from .modules.exporter import ExportIIIF3DManifest
 from .modules.importer import ImportIIIF3DManifest
-from .modules.editing.import_model import ImportModel
+from .modules.editing.import_model import ImportLocalModel, ImportNetworkModel
 from .modules.editing.new_manifest import NewManifest
 
 from .modules.custom_props import (
@@ -33,7 +33,8 @@ class OUTLINER_MT_edit_manifest(Menu):
     def draw(self,context):
         layout = self.layout
         target_collection = context.collection
-        layout.operator(ImportModel.bl_idname, text="Add Model")
+        layout.operator(ImportLocalModel.bl_idname, text="Add Local Model")
+        layout.operator(ImportNetworkModel.bl_idname, text="Add Network Model")
         
         """
         operators for adding a camera and light will be added
@@ -47,7 +48,8 @@ def menu_func_manifest_submenu(self,context):
 classes = (
     ImportIIIF3DManifest,
     ExportIIIF3DManifest,
-    ImportModel,
+    ImportLocalModel,
+    ImportNetworkModel,
     IIIFManifestPanel,
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
