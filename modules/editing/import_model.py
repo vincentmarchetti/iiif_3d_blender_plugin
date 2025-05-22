@@ -12,7 +12,7 @@ from mathutils import Vector
 from .initialize_collections import initialize_annotation
 
 import math
-
+import json
 import logging
 
 logger = logging.getLogger("import-model")
@@ -93,7 +93,17 @@ class ImportModel(Operator, ImportHelper):
             ".gltf": "model/gltf+json"
         }
         
-        new_model["iiif_format"] = ext_to_mime.get(file_ext, "n/a")
+        model_format = ext_to_mime.get(file_ext, None)
+        
+        new_model_data = {
+            "id" : None,
+            "type" : None
+        }
+        if model_format:
+            new_model_data["format"] = model_format
+        
+        
+        new_model["iiif_json"] = json.dumps(new_model_data)
         new_model["iiif_type"] = "Model"
         
         annotation_collection=bpy.data.collections.new("Annotation")
