@@ -133,7 +133,55 @@ class ExportIIIF3DManifest(Operator, ExportHelper):
             return self.specific_data_for_model(blender_obj, resource_data , anno_collection)
         
     def specific_data_for_model(self, blender_obj:bpy.types.Object, resource_data:dict, anno_collection:bpy.types.Collection ):
-        return resource_data
+        """
+        """
+        transforms = list()
+        saved_mode = blender_obj.rotation_mode
+        try:
+            blender_obj.rotation_mode = "QUATERNION"
+            quat = blender_obj.rotation_quaternion
+            # the angle property can be used to decide if this is,
+            # essentially a 0-rotation, to within sensible precision
+            abs_angle = abs(quat.angle)
+            logger.info("abs(angle) of a model rotation: %.2e" % abs_angle)
+            if abs_angle > 1.0e-6:
+                iiif_rotation = Coordinates.blender_rotation_to_model_transform_angles(quat)
+                transforms.append(
+                    create_axes_named_values("RotateTransform", iiif_rotation)
+                )
+        finally:
+            blender_obj.rotation_mode = saved_mode
+        
+        blender_scale = blender_obj.scale.to_tuple() # this is a (3,) tuple
+        is_uniform_scaling = True
+        uniform_scale = blender_scale[0]
+        # for now we warn on non-uniform scaling
+        for s in blender_scale[1:3]:
+            if s != uniform_scale:
+                logger.warning("non-uniform scaling %s for model" % (blender_scale,))
+                is_uniform_scaling = False
+                break
+        # non-uniform scaling is wta
+        # problematic if there are rotations involved,
+        # but this is as good as we can get to convert to iiif-Coordinates
+        iiif_scale = ( blender_scale[0], blender_scale[2], blender_scale[1] )
+        
+        if not ( is_uniform_scaling and uniform_scale == 1 ):
+            transforms.append(
+                create_axes_named_values("ScaleTransform", iiif_scale)
+            )
+            
+         
+        if transforms:
+            retVal = {
+                "type" : "SpecificResource",
+                "source" : resource_data,
+                "transform" : transforms
+            }
+        else:
+            retVal = resource_data
+            
+        return retVal
         
         
         
