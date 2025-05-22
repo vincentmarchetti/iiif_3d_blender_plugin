@@ -82,8 +82,11 @@ class ImportModel(Operator, ImportHelper):
         new_model = bpy.context.active_object
         logger.info("new_model: %r" % (new_model,))
         
-        import pathlib
-        iiif_id = pathlib.Path(self.filepath).as_uri()
+        if self.model_url:
+            iiif_id = self.model_url
+        else:
+            import pathlib
+            iiif_id = pathlib.Path(self.filepath).as_uri()
         new_model["iiif_id"] = iiif_id
         
         import os.path
@@ -131,6 +134,7 @@ class ImportLocalModel(ImportModel, ImportHelper):
         rv = ImportHelper.invoke(self, context,event)
         return rv
 
+
 class ImportNetworkModel(ImportModel, ImportHelper):
     bl_idname = "iiif.import_network_model"
     bl_label = "Import remote resource as model"    
@@ -144,4 +148,32 @@ class ImportNetworkModel(ImportModel, ImportHelper):
 
     def execute(self, context: Context) -> Set[str]:
         logger.info("stub execution only with %r : %r" % (self.model_url, self.filepath))
-        return {"FINISHED"}
+        self.filepath = self.download_model(self.model_url)
+        return ImportModel.execute(self, context)
+        
+    
+     
+    # developer note: following is copy of the method
+    # from the importer Operator as developed by K Niebes
+    # a TODO is to somehow share this function, perhaps by clever multiple
+    # inheritance  
+    def download_model(self, url: str) -> str:
+        """Download the model file from the given URL"""
+        temp_dir = bpy.app.tempdir
+        time_string = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        model_name = os.path.basename(url)
+        model_extension = os.path.splitext(model_name)[1]
+        temp_file = os.path.join(
+            temp_dir, f"temp_model_{time_string}_{model_name}{model_extension}"
+        )
+
+        try:
+            #self.report({"DEBUG"}, f"Downloading model from {url} to {temp_file}")
+            logger.info( f"Downloading model from {url} to {temp_file}" )
+            urllib.request.urlretrieve(url, temp_file)
+            logger.info( f"Successfully downloaded model to {temp_file}") 
+            return temp_file
+        except Exception as e:
+            logger.exception( f"Error downloading model: {str(e)}" , e)
+            self.report({"ERROR"}, f"Error downloading model: {str(e)}")
+            raise
