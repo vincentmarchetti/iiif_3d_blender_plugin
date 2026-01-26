@@ -173,7 +173,48 @@ class ImportManifest(Operator, ImportHelper):
                 raise Exception("infinite (or too deep) object parent-child tree")
             move_object_into_collection(_obj, anno_collection)
             
-        return
+        # add an Empty object into the annotation if the target_data specifies
+        # a SpecificResource and PointSelector, and the Annotation paints a Camera
+
+        if body_data["type"] == "SpecificResource":
+            resource_data = force_as_object(
+             force_as_singleton(body_data.get("source", None)), default_type="Model"
+            )
+        else:
+            resource_data = body_data
+        
+        resource_type :str = resource_data["type"]
+        isCamera : bool = resource_type in ("PerspectiveCamera",)
+        if  isCamera and target_data.get("type","") == "SpecificResource":
+            selector = force_as_singleton( target_data["selector"] )
+            if selector and selector.get("type","") == "PointSelector":
+                target_transform = Transform.from_iiif_dict(selector)
+                target_placement = Placement(translation=target_transform)
+                
+                
+                point_selector_id = "%s/target/pointselector" % annotation_data["id"]
+                from .editing.pointselectors import configure_pointselector
+                point_selector_data = {
+                    "type" : "PointSelector",
+                    "id"   : point_selector_id
+                }
+                
+                try:
+                    retCode = bpy.ops.object.empty_add()
+                    logger.info("obj.empty_add %r" % (retCode,))
+                except Exception as exc:
+                    logger.error("add pointselector error", exc)
+
+                new_pointselector = bpy.context.active_object
+                if new_pointselector is  None:
+                    raise  ImportManifestError("failed to add pointselector") 
+                
+                configure_pointselector(    new_pointselector,
+                                            resource_data=point_selector_data,
+                                            placement = target_placement)
+                                            
+                move_object_into_collection(new_pointselector, anno_collection)
+                return
                     
     def body_to_object(self, body_data : dict, target_data: dict) -> Object:
         """
