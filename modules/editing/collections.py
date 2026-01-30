@@ -216,12 +216,29 @@ def getAnnotationPages(scene_collection):
 def getAnnotations(page_collection):
     return _find_child_resources_by_type( page_collection, "Annotation" )
 
-    
+ 
+BodyIIIFTypes = [
+    "Model",
+    "PerspectiveCamera"
+]   
+
 def getBodyObject(anno_collection) -> bpy.types.Object | None:
     
-    bodyObjList = [obj for obj in anno_collection.objects if obj.get("iiif_type", None)]
+    bodyObjList = [obj for obj in anno_collection.objects if obj.get("iiif_type", None) \
+                    and obj.get("iiif_type") in BodyIIIFTypes ]
     if len(bodyObjList) == 0:
         return None
     if len(bodyObjList) > 1:
         logger.warning("multiple body objects in single Annotation")
     return bodyObjList[0]
+    
+def getPointSelectorObject(anno_collection) -> bpy.types.Object | None:
+    
+    pointselectorObjList = [obj for obj in anno_collection.objects \
+                            if obj.get("iiif_type", None) \
+                            and obj.get("iiif_type") == "PointSelector"]
+    if len(pointselectorObjList) == 0:
+        return None
+    if len(pointselectorObjList) > 1:
+        logger.warning("multiple body objects in single Annotation")
+    return pointselectorObjList[0]

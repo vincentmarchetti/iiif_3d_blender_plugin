@@ -15,6 +15,7 @@ from .editing.collections import (getScenes,
                     getAnnotations, 
                     getAnnotationPages,
                     getBodyObject,
+                    getPointSelectorObject,
                     getManifests)
                     
 from .editing.transforms import (   Transform, 
@@ -125,17 +126,50 @@ class ExportManifest(Operator, ExportHelper):
 #        is represented in the data for the Model
         bodyObj = getBodyObject(anno_collection)
         
+#        Developer Note 28 Jan 2026
+#        The placement (scaling, rotation, and translation) of the body Object
+#        is entirely specified in the Blender object for the body. The purpose
+#        of the calculations involving the pointSelectorObj is to represent this
+#        placement in the exported manifest as a combination of transforms in the
+#        annotation body and a point selector resource in the annotation target.
+#        This will allow the annotation target to also represent hints on how
+#        to do viewpoint/camera orbiting. This idea of hints for orbiting is NOT a
+#        documented feature of the Presentation 4 document
+        pointSelectorObj = getPointSelectorObject(anno_collection)
+        
         if bodyObj is not None:
             resource_data = self.resource_data_for_object( bodyObj )
             transforms    = simplifyTransforms(
                                 self.applied_transforms_for_object( bodyObj )
                             )
+                    
+            logging.info(f"transforms : {','.join([str(s) for s in transforms])}")
+                      
+            pointSelectorObj = getPointSelectorObject(anno_collection)
+            
+            def evaluateTargetTranslation() -> Translation:
+                if pointSelectorObj is not None:
+                    tmp = get_object_placement(pointSelectorObj).translation
+                    logger.debug(f"evaluateTargetTranslation get_object_placement(pointSelectorObj).translation {get_object_placement(pointSelectorObj).translation}")
+                    return tmp
+                elif len(transforms) > 0 and isinstance(transforms[-1], Translation):
+                    tmp = transforms[-1]
+                    logger.debug(f"evaluateTargetTranslation transforms[-1] {transforms[-1]}")
+                    return tmp
+                else:
+                    return Translation(Vector((0,0,0)))
+            targetTranslation = evaluateTargetTranslation()
+            
+            bodyTransforms =    simplifyTransforms( 
+                                    transforms + [targetTranslation.inverse()]
+                                )
+            logging.info(f"bodyTransforms : {','.join([str(s) for s in bodyTransforms])} targetTranslation {str(targetTranslation)}")
             anno_data["target"] = self.target_data_for_object(  resource_data, 
-                                                                transforms, 
+                                                                [targetTranslation],
                                                                 anno_collection)
-                                                                
+                                                            
             anno_data["body"]= self.body_data_for_object(   resource_data, 
-                                                            transforms,
+                                                            bodyTransforms,
                                                             anno_collection)
 
         return anno_data

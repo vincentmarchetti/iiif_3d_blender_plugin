@@ -1,13 +1,9 @@
 import json
-import math
 from bpy.types import Object
-from mathutils import Quaternion
-
-from typing import List
 
 from . import generate_id
-from ..utils.json_patterns import force_as_singleton
-from ..editing.transforms import Transform, Rotation, Placement, transformsToPlacements
+
+from ..editing.transforms import  Placement
 
 import logging
 logger = logging.getLogger("iiif.cameras")

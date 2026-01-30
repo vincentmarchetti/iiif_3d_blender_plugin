@@ -98,7 +98,11 @@ class Translation(Transform):
         return retVal
 
     def __repr__(self):
-        return "Translation(%r)" %  self.data  
+        return "Translation(%r)" %  self.data
+        
+    def __str__(self):
+        return "Translation(%s)" % list(map(lambda s: "%.2f" % s, self.data))
+  
                 
 class Rotation(Transform):
     def __init__(self, quat : Quaternion ):
@@ -158,7 +162,11 @@ class Rotation(Transform):
         return retVal
 
     def __repr__(self):
-        return "Rotation(%r)" %  self.data  
+        return "Rotation(%r)" %  self.data
+        
+    def __str__(self):
+        return "Rotation(%s)" % list(map(lambda s: "%.2f" % s, self.data))
+
     
 class Scaling(Transform):
     def __init__(self, vec: Vector ):
@@ -273,7 +281,9 @@ class Scaling(Transform):
     def __repr__(self):
         return "Scaling(%r)" %  self.data
         
-
+    def __str__(self):
+        return "Scaling(%s)" % list(map(lambda s: "%.2f" % s, self.data))
+        
 class Placement:
     def __init__(self, scaling=None, rotation=None, translation=None):
         self.scaling :  Scaling = scaling or Scaling(Vector((1,1,1)))
