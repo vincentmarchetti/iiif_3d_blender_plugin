@@ -182,7 +182,6 @@ class ImportManifest(Operator, ImportHelper):
         else:
             resource_data = body_data
         
-        resource_type :str = resource_data["type"]
         logger.debug(f"process_annotation new_object.type {repr(new_object.type)}")
         if  new_object.type in ('CAMERA','LIGHT') and \
             target_data.get("type","") == "SpecificResource":
