@@ -98,7 +98,7 @@ class Translation(Transform):
         return "Translation(%r)" %  self.data
         
     def __str__(self):
-        return "Translation(%s)" % list(map(lambda s: "%.2f" % s, self.data))
+        return "Translation(%s)" % ",".join(list(map(lambda s: "%.3f" % s, self.data.to_tuple())))
   
                 
 class Rotation(Transform):
@@ -161,7 +161,8 @@ class Rotation(Transform):
         return "Rotation(%r)" %  self.data
         
     def __str__(self):
-        return "Rotation(%s)" % list(map(lambda s: "%.2f" % s, self.data))
+        return "Rotation(%s)" % ",".join(list(map(lambda s: "%.3f" % s, 
+                (self.data.x,self.data.y,self.data.z,self.data.w ))))
 
     
 class Scaling(Transform):
@@ -277,7 +278,7 @@ class Scaling(Transform):
         return "Scaling(%r)" %  self.data
         
     def __str__(self):
-        return "Scaling(%s)" % list(map(lambda s: "%.2f" % s, self.data))
+        return "Scaling(%s)" % ",".join(list(map(lambda s: "%.2f" % s, self.data.to_tuple())))
         
 class Placement:
     def __init__(self, scaling=None, rotation=None, translation=None):
