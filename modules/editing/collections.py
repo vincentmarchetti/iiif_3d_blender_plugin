@@ -240,5 +240,5 @@ def getPointSelectorObject(anno_collection) -> bpy.types.Object | None:
     if len(pointselectorObjList) == 0:
         return None
     if len(pointselectorObjList) > 1:
-        logger.warning("multiple body objects in single Annotation")
+        logger.warning("multiple pointselector objects in single Annotation")
     return pointselectorObjList[0]
