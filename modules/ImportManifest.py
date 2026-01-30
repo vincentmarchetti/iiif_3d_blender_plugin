@@ -183,8 +183,9 @@ class ImportManifest(Operator, ImportHelper):
             resource_data = body_data
         
         resource_type :str = resource_data["type"]
-        isCamera : bool = resource_type in ("PerspectiveCamera",)
-        if  isCamera and target_data.get("type","") == "SpecificResource":
+        logger.debug(f"process_annotation new_object.type {repr(new_object.type)}")
+        if  new_object.type in ('CAMERA','LIGHT') and \
+            target_data.get("type","") == "SpecificResource":
             selector = force_as_singleton( target_data["selector"] )
             if selector and selector.get("type","") == "PointSelector":
                 target_transform = Transform.from_iiif_dict(selector)
@@ -211,7 +212,7 @@ class ImportManifest(Operator, ImportHelper):
                 configure_pointselector(    new_pointselector,
                                             resource_data=point_selector_data,
                                             placement = target_placement)
-                                            
+                new_pointselector.name = "%s/pointselector" % anno_collection.name                          
                 move_object_into_collection(new_pointselector, anno_collection)
                 return
                     

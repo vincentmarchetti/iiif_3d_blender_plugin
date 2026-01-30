@@ -142,18 +142,18 @@ class ExportManifest(Operator, ExportHelper):
                                 self.applied_transforms_for_object( bodyObj )
                             )
                     
-            logging.info(f"transforms : {','.join([str(s) for s in transforms])}")
+            logging.debug(f"transforms : {','.join([str(s) for s in transforms])}")
                       
             pointSelectorObj = getPointSelectorObject(anno_collection)
             
             def evaluateTargetTranslation() -> Translation:
-                if pointSelectorObj is not None:
+                if bodyObj.type in ('CAMERA','LIGHT') and pointSelectorObj is not None:
                     tmp = get_object_placement(pointSelectorObj).translation
-                    logger.debug(f"evaluateTargetTranslation get_object_placement(pointSelectorObj).translation {get_object_placement(pointSelectorObj).translation}")
+                    logger.debug(f"evaluateTargetTranslation get_object_placement(pointSelectorObj).translation {tmp}")
                     return tmp
                 elif len(transforms) > 0 and isinstance(transforms[-1], Translation):
                     tmp = transforms[-1]
-                    logger.debug(f"evaluateTargetTranslation transforms[-1] {transforms[-1]}")
+                    logger.debug(f"evaluateTargetTranslation transforms[-1] {tmp}")
                     return tmp
                 else:
                     return Translation(Vector((0,0,0)))
@@ -162,7 +162,7 @@ class ExportManifest(Operator, ExportHelper):
             bodyTransforms =    simplifyTransforms( 
                                     transforms + [targetTranslation.inverse()]
                                 )
-            logging.info(f"bodyTransforms : {','.join([str(s) for s in bodyTransforms])} targetTranslation {str(targetTranslation)}")
+            logging.debug(f"bodyTransforms : {','.join([str(s) for s in bodyTransforms])} targetTranslation {str(targetTranslation)}")
             anno_data["target"] = self.target_data_for_object(  resource_data, 
                                                                 [targetTranslation],
                                                                 anno_collection)
