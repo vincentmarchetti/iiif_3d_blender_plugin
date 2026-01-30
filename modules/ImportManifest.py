@@ -175,13 +175,6 @@ class ImportManifest(Operator, ImportHelper):
             
         # add an Empty object into the annotation if the target_data specifies
         # a SpecificResource and PointSelector, and the Annotation paints a Camera
-
-        if body_data["type"] == "SpecificResource":
-            resource_data = force_as_object(
-             force_as_singleton(body_data.get("source", None)), default_type="Model"
-            )
-        else:
-            resource_data = body_data
         
         logger.debug(f"process_annotation new_object.type {repr(new_object.type)}")
         if  new_object.type in ('CAMERA','LIGHT') and \
