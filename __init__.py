@@ -24,6 +24,7 @@ from .modules.NewCamera import NewCamera
 from .modules.LoadLocalModel import LoadLocalModel
 from .modules.LoadNetworkModel import LoadNetworkModel
 from .modules.Configure3DViewport import Configure3DViewport
+from .modules.AimCameraToLookat import AimCameraToLookat
 
 from .modules.custom_props import (
     AddIIIF3DObjProperties,
@@ -56,6 +57,18 @@ class OUTLINER_MT_edit_manifest_anno_page(Menu):
         layout.operator(ImportNetworkModel.bl_idname, text="Add Network Model")
         layout.operator(NewCamera.bl_idname, text="Add Camera")
         
+class OUTLINER_MT_edit_manifest_anno(Menu):
+    """
+    intent is that this menu will be added to the popup
+    menu associated with any Blender bpy.type.Collection
+    which has an iiif_type property value of Annotation
+    """
+    bl_label="Annotation Operations"
+    bl_idname="OUTLINER_MT_edit_annotation"
+    
+    def draw(self,context):
+        layout = self.layout
+        layout.operator(AimCameraToLookat.bl_idname, text="Aim Camera")
 
 
 
@@ -65,7 +78,10 @@ def menu_func_manifest_submenu(self,context):
     target_collection = context.collection
     layout = self.layout
     if target_collection.get("iiif_type","") == "AnnotationPage":
-        layout.menu(OUTLINER_MT_edit_manifest_anno_page.bl_idname, text="Add Painting Annotation") 
+        layout.menu(OUTLINER_MT_edit_manifest_anno_page.bl_idname, text="Add Painting Annotation")
+    if target_collection.get("iiif_type","") == "Annotation":
+        layout.menu(OUTLINER_MT_edit_manifest_anno.bl_idname, text="Edit Annotation")
+    
 
 classes = (
     RunUnitTests,
@@ -75,6 +91,7 @@ classes = (
     ImportNetworkModel,
     LoadLocalModel,
     LoadNetworkModel,
+    AimCameraToLookat,
     IIIFManifestPanel,
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
@@ -83,6 +100,7 @@ classes = (
     NewManifest,
     NewCamera,
     OUTLINER_MT_edit_manifest_anno_page,
+    OUTLINER_MT_edit_manifest_anno,
     Configure3DViewport
 )
 
