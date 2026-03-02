@@ -235,10 +235,20 @@ def getBodyObject(anno_collection) -> bpy.types.Object | None:
 def getPointSelectorObject(anno_collection) -> bpy.types.Object | None:
     
     pointselectorObjList = [obj for obj in anno_collection.objects \
-                            if obj.get("iiif_type", None) \
+                            if obj.type == 'EMPTY' \
+                            and obj.get("iiif_type", None) \
                             and obj.get("iiif_type") == "PointSelector"]
     if len(pointselectorObjList) == 0:
         return None
     if len(pointselectorObjList) > 1:
         logger.warning("multiple pointselector objects in single Annotation")
     return pointselectorObjList[0]
+    
+def getCameraObject(anno_collection) -> bpy.types.Object | None:
+    
+    cameraObjList = [obj for obj in anno_collection.objects  if obj.type == 'CAMERA' ]
+    if len(cameraObjList) == 0:
+        return None
+    if len(cameraObjList) > 1:
+        logger.warning("multiple camera objects in single Annotation")
+    return cameraObjList[0]
