@@ -1,10 +1,10 @@
 from typing import Set
-import mathutils
+from mathutils import Vector
 import math
 
 from .editing.models import  mimetype_from_extension , configure_model, walk_object_tree
-from .editing.transforms import Placement , get_object_placement
-from .editing.collections import getCameraObject , getPointSelectorObject
+from .editing.transforms import Placement , get_object_placement, Translation
+from .editing.collections import getCameraObject , getPointSelectorObject, move_object_into_collection
 from .editing.fileops import path_to_uri
 from .editing.pointselectors import configure_pointselector
 
@@ -57,14 +57,19 @@ class NewLookAt(Operator):
         
         new_pointselector = bpy.context.active_object
         if new_pointselector is not None:
+            # the orginal direction of camera
+            camera_direction : Vector = Vector( (0.0,0.0,-1.0))
+            camera_direction.rotate(cameraPlacement.rotation.data)
+            lookat_distance = 10.0
+            lookat_location: Vector = cameraPlacement.translation.data + \
+                                      lookat_distance * camera_direction
             
-            placement:Placement = Placement(translation = cameraPlacement.translation)
+            
+            placement:Placement = Placement(translation = Translation(lookat_location))
             configure_pointselector(    new_pointselector,
                                         {},
                                         placement)
             new_pointselector.name = "%s/pointselector" % annotation_collection.name 
             move_object_into_collection(new_pointselector, annotation_collection)
-                                        
-            
         
         return {"FINISHED"}
