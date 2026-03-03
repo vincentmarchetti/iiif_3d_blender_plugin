@@ -25,6 +25,7 @@ from .modules.LoadLocalModel import LoadLocalModel
 from .modules.LoadNetworkModel import LoadNetworkModel
 from .modules.Configure3DViewport import Configure3DViewport
 from .modules.AimCameraToLookat import AimCameraToLookat
+from .modules.NewLookAt         import NewLookAt
 
 from .modules.custom_props import (
     AddIIIF3DObjProperties,
@@ -69,6 +70,7 @@ class OUTLINER_MT_edit_manifest_anno(Menu):
     def draw(self,context):
         layout = self.layout
         layout.operator(AimCameraToLookat.bl_idname, text="Aim Camera")
+        layout.operator(NewLookAt.bl_idname, text="Create LookAt")
 
 
 
@@ -92,6 +94,7 @@ classes = (
     LoadLocalModel,
     LoadNetworkModel,
     AimCameraToLookat,
+    NewLookAt,
     IIIFManifestPanel,
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
