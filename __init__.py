@@ -27,6 +27,8 @@ from .modules.Configure3DViewport import Configure3DViewport
 from .modules.AimCameraToLookat import AimCameraToLookat
 from .modules.NewLookAt         import NewLookAt
 
+from .modules.editing.collections import getPointSelectorObject, getCameraObject
+
 from .modules.custom_props import (
     AddIIIF3DObjProperties,
     AddIIIF3DCollProperties,
@@ -69,9 +71,12 @@ class OUTLINER_MT_edit_manifest_anno(Menu):
     bl_idname="OUTLINER_MT_edit_annotation"
     
     def draw(self,context):
+        target_collection = context.collection 
         layout = self.layout
-        layout.operator(AimCameraToLookat.bl_idname, text="Aim Camera")
-        layout.operator(NewLookAt.bl_idname, text="Create LookAt")
+        if getPointSelectorObject(target_collection) is not None:
+            layout.operator(AimCameraToLookat.bl_idname, text="Aim Camera")
+        else:
+            layout.operator(NewLookAt.bl_idname, text="Create LookAt")
 
 
 
@@ -83,7 +88,8 @@ def menu_func_manifest_submenu(self,context):
     if target_collection.get("iiif_type","") == "AnnotationPage":
         layout.menu(OUTLINER_MT_edit_manifest_anno_page.bl_idname, text="Add Painting Annotation")
     if target_collection.get("iiif_type","") == "Annotation":
-        layout.menu(OUTLINER_MT_edit_manifest_anno.bl_idname, text="Edit Annotation")
+        if ( getCameraObject( target_collection ) is not None):
+            layout.menu(OUTLINER_MT_edit_manifest_anno.bl_idname, text="Edit Annotation")
     
 
 classes = (
