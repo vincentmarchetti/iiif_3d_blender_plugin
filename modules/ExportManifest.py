@@ -184,8 +184,6 @@ class ExportManifest(Operator, ExportHelper):
         # Translation, will be encoded in the target. The remaining transforms will
         # be simplified to list of placements, and then converted back to a list of
         # transforms and then iiif Tranform resources
-        if len(transforms) > 0 and isinstance( transforms[-1], Translation):
-            transforms = transforms[:-1]
 
         if (len(transforms) > 0):
             specific_resource = {
