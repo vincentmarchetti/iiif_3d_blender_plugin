@@ -135,7 +135,6 @@ class ExportManifest(Operator, ExportHelper):
 #        This will allow the annotation target to also represent hints on how
 #        to do viewpoint/camera orbiting. This idea of hints for orbiting is NOT a
 #        documented feature of the Presentation 4 document
-        pointSelectorObj = getPointSelectorObject(anno_collection)
         
         if bodyObj is not None:
             resource_data = self.resource_data_for_object( bodyObj )
@@ -208,7 +207,8 @@ class ExportManifest(Operator, ExportHelper):
             "type" : "Scene"
         }
         
-        if len(transforms) > 0 and isinstance( transforms[-1], Translation):
+        if len(transforms) > 0 and isinstance( transforms[-1], Translation) \
+            and not transforms[-1].isIdentity():
             def build_selector(tt:Translation) -> dict:
                 tmp = tt.to_iiif_dict()
                 tmp["type"]="PointSelector"
@@ -326,47 +326,6 @@ class ExportManifest(Operator, ExportHelper):
         ) 
         return exported_transform_list  
         
-        
-        
-##    def target_data_for_object(self, blender_obj:bpy.types.Object, anno_collection:bpy.types.Collection) -> dict:
-##        if blender_obj.get("iiif_type", None) in ("Model","PerspectiveCamera"):
-##            return self.target_data_for_model(blender_obj, anno_collection )
-##        else:
-##            logger.warning("invalid object %r in target_data_for_object" % (blender_obj),)
-##            return {}
-##        
-##    def target_data_for_model(self, blender_obj:bpy.types.Object, anno_collection:bpy.types.Collection) -> dict:
-##        """
-##        Examines the Blender "location" of the blender_obj and returns a SpecificResource data
-##        with a PointSelector and source of the enclosing scene
-##        """  
-##        ALWAYS_USE_POINTSELECTOR=False
-##         
-##        enclosing_scene=getTargetScene(anno_collection)
-##        if enclosing_scene is not None:
-##            scene_ref_data = {
-##                "id" :   enclosing_scene.get("iiif_id"),
-##                "type" : enclosing_scene.get("iiif_type")
-##            }
-##            
-##            blender_location = blender_obj.location
-##            iiif_position = Coordinates.blender_vector_to_iiif_position(blender_location)
-##            
-##            if iiif_position != (0.0,0.0,0.0) or ALWAYS_USE_POINTSELECTOR:
-##                target_data = {
-##                "type" : "SpecificResource",
-##                "source" : scene_ref_data,
-##                "selector" : create_axes_named_values("PointSelector", iiif_position)
-##                }
-##            else:
-##                target_data = scene_ref_data
-##            return target_data
-##        else:
-##            raise  Exception("enclosing scene not identified to for model target")
-        
-
-
-
     def execute(self, context: Context) -> Set[str]:
         """Export Blender scene as IIIF manifest"""
         manifests = getManifests()
