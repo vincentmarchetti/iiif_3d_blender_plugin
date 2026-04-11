@@ -29,8 +29,8 @@ def configure_camera(   new_camera : Object,
             del resource_data["fieldOfView"]
         
     
-    new_camera["iiif_type"] = resource_data["type"]
-    new_camera["iiif_id"]   = resource_data["id"]
+    new_camera["iiif_type"] = resource_data["type"]    
+    new_camera["iiif_id"]   = resource_data["id"] or generate_data( resource_data["type"])
     new_camera["iiif_json"] = json.dumps(resource_data)
     
     new_camera.location = placement.translation.data

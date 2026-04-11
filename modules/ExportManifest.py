@@ -75,8 +75,9 @@ class ExportManifest(Operator, ExportHelper):
         else:
             base_data = dict()
             
-        base_data["id"] = iiif_object.get("iiif_id")
+        
         base_data["type"] = iiif_object.get("iiif_type")
+        base_data["id"] = iiif_object.get("iiif_id") or generate_id( base_data["type"] )
         return base_data
 
     def get_manifest_data(self, manifest_collection: bpy.types.Collection) -> dict:
