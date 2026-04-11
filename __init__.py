@@ -73,10 +73,11 @@ class OUTLINER_MT_edit_manifest_anno(Menu):
     def draw(self,context):
         target_collection = context.collection 
         layout = self.layout
-        if getPointSelectorObject(target_collection) is not None:
-            layout.operator(AimCameraToLookat.bl_idname, text="Aim Camera")
-        else:
-            layout.operator(NewLookAt.bl_idname, text="Create LookAt")
+        if layout is not None:
+            if getPointSelectorObject(target_collection) is not None:
+                layout.operator(AimCameraToLookat.bl_idname, text="Aim Camera")
+            else:
+                layout.operator(NewLookAt.bl_idname, text="Create LookAt")
 
 
 

@@ -1,15 +1,11 @@
 from typing import Set
 from mathutils import Vector
-import math
 
-from .editing.models import  mimetype_from_extension , configure_model, walk_object_tree
 from .editing.transforms import Placement , get_object_placement, Translation
 from .editing.collections import getCameraObject , getPointSelectorObject, move_object_into_collection
-from .editing.fileops import path_to_uri
 from .editing.pointselectors import configure_pointselector
 
 import bpy
-from bpy.props import StringProperty
 from bpy.types import Context, Operator
 
 
@@ -31,10 +27,18 @@ class NewLookAt(Operator):
     def execute(self, context: Context) -> Set[str]:
 
         annotation_collection = context.collection
-        if not annotation_collection.get("iiif_type","") == "Annotation":
+        
+        if annotation_collection is None:
+            logger.warning("annotation_collection is None")
+            return {"CANCELLED"}  
+            
+        if  annotation_collection is not None and \
+            annotation_collection.get("iiif_type","") != "Annotation":
             logger.warning("invalid context.collection: %r" % (annotation_collection,))
             return {"CANCELLED"}
 
+
+                      
         camera =  getCameraObject(annotation_collection)
         if camera is None:
             logger.warning("No camera found in annotation")

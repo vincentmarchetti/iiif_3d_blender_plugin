@@ -2,13 +2,10 @@ from typing import Set
 import mathutils
 import math
 
-from .editing.models import  mimetype_from_extension , configure_model, walk_object_tree
-from .editing.transforms import Placement , get_object_placement
-from .editing.collections import getCameraObject , getPointSelectorObject
-from .editing.fileops import path_to_uri
 
-import bpy
-from bpy.props import StringProperty
+from .editing.transforms import  get_object_placement
+from .editing.collections import getCameraObject , getPointSelectorObject
+
 from bpy.types import Context, Operator
 
 
@@ -30,7 +27,9 @@ class AimCameraToLookat(Operator):
     def execute(self, context: Context) -> Set[str]:
 
         annotation_collection = context.collection
-        if not annotation_collection.get("iiif_type","") == "Annotation":
+                   
+        if  annotation_collection is not None and \
+            annotation_collection.get("iiif_type","") != "Annotation":
             logger.warning("invalid context.collection: %r" % (annotation_collection,))
             return {"CANCELLED"}
 
